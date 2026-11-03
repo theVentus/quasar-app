@@ -23,4 +23,4 @@ Screenshot states are launch arguments (`-tab home|library|review|lab|search`, `
 - Reading themes: paper, sepia (default), dusk, night. Pastel tints only, as highlighter colours.
 - Pastels across the app. Each course sets `theme` in `course.json`: a pastel `accent` for fills, `accentDeep` for text and icons on light surfaces, `onAccent` for labels on pastel, and its `landing` backdrop. Home is the landing page of the last-opened course; Library holds every course as a poster.
 - Never commit a book's EPUB, text or cover to this public repo, never print titles in CI logs, and never render a real book in CI screenshots: screenshots use the fixture (`-fixtureBooks YES`). A book becomes part of the app like a course: its `book.json` sets the accent and landing backdrop (`cover` for any book, or a bespoke one like `web`), and new books arrive with a new build, not by in-app import.
-- Commits: author `theVentus`, end with the session attribution lines.
+- Commits: author `theVentus <50719962+theVentus@users.noreply.github.com>` (GitHub no-reply; never the personal email), end with the session attribution lines.
