@@ -14,3 +14,8 @@ web/dist/
 proxy/.dev.vars
 # Authoring sources stay out of the repo
 authoring/
+# Generated
+App/QBD.xcodeproj/
+App/QBD/Info.plist
+App/build/
+shots/

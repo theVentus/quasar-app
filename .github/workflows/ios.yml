@@ -1,0 +1,75 @@
+name: iOS
+on:
+  push:
+    branches: [main]
+    paths: ['App/**', 'Packages/**', 'content/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ios
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode 26
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          xcodebuild -version | tee -a ci.log
+
+      - name: CourseKit tests
+        run: cd Packages/QBDKit && swift test 2>&1 | tee -a ../../ci.log
+
+      - name: Generate project
+        run: brew install xcodegen && cd App && xcodegen generate 2>&1 | tee -a ../ci.log
+
+      - name: Pick simulator
+        run: echo "UDID=$(python3 App/scripts/pick-sim.py 2>>ci.log)" >> "$GITHUB_ENV"
+
+      - name: Screenshots
+        timeout-minutes: 20
+        run: bash App/scripts/screenshots.sh 2>&1 | tee -a ci.log
+
+      - name: Publish screenshots to ci-shots branch
+        run: |
+          cd shots
+          git init -q -b ci-shots
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "shots ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-shots
+
+      - name: Build unsigned IPA
+        run: |
+          cd App
+          xcodebuild -project QBD.xcodeproj -scheme QBD -configuration Release -sdk iphoneos \
+            -destination generic/platform=iOS -derivedDataPath build/device \
+            MARKETING_VERSION=0.1.${{ github.run_number }} CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build -quiet 2>&1 | tee -a ../ci.log
+          mkdir -p Payload && cp -R build/device/Build/Products/Release-iphoneos/QBD.app Payload/
+          zip -qr QBD.ipa Payload
+          python3 scripts/altstore-source.py QBD.ipa 0.1.${{ github.run_number }} ${{ github.run_number }} altstore.json
+
+      - name: Publish IPA to release "latest"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          R=${{ github.repository }}
+          gh release view latest -R $R >/dev/null 2>&1 || \
+            gh release create latest -R $R --prerelease --title "Latest build" --notes "Unsigned IPA. Install with AltStore or Sideloadly."
+          gh release upload latest App/QBD.ipa App/altstore.json -R $R --clobber
+          gh release edit latest -R $R --notes "Unsigned IPA from ${GITHUB_SHA::7}. Install with AltStore (add altstore.json as a source) or Sideloadly."
+
+      # Raw logs aren't reachable from the dev sandbox; surface failures as annotations instead.
+      - name: Report failure
+        if: failure()
+        run: |
+          touch ci.log
+          grep -E "error:|failed|Error|Traceback|no iOS 26" ci.log | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+          tail -40 ci.log | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed 's/^/::warning title=tail::/'; echo
