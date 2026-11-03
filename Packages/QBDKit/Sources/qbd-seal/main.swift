@@ -1,6 +1,6 @@
 // Seals book packages for a public build.
 // Usage: LIBRARY_PASSPHRASE=… swift run qbd-seal <books dir> <out dir>
-// Each subdirectory of <books dir> holding book.json + book.epub becomes <out dir>/<hash of id>.qbdvault.
+// Each subdirectory of <books dir> holding book.json + one .epub becomes <out dir>/<hash of id>.qbdvault.
 // Prints counts only, never titles, because CI logs are public.
 import Foundation
 import BookKit
@@ -19,8 +19,10 @@ try fm.createDirectory(at: out, withIntermediateDirectories: true)
 
 var sealed = 0
 for dir in try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil).sorted(by: { $0.path < $1.path }) {
-    let json = dir.appendingPathComponent("book.json"), epub = dir.appendingPathComponent("book.epub")
-    guard fm.fileExists(atPath: json.path), fm.fileExists(atPath: epub.path) else { continue }
+    // book.json plus one .epub of any name (uploads keep their original file names).
+    let json = dir.appendingPathComponent("book.json")
+    let epubs = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []).filter { $0.pathExtension.lowercased() == "epub" }
+    guard fm.fileExists(atPath: json.path), let epub = epubs.sorted(by: { $0.path < $1.path }).first else { continue }
     let manifest = try JSONDecoder().decode(BookManifest.self, from: Data(contentsOf: json))
 
     // Validate before sealing: the EPUB must parse.
