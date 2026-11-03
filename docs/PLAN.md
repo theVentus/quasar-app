@@ -1,6 +1,6 @@
 # Quasar to Blue Dot for iOS: app plan
 
-Status: planning. The repo exists with the plan, the course package and the web reference build; no Xcode project yet. Date of research: 3 November 2026.
+Status: planning. Constraints confirmed 3 November 2026 (section 0a). The repo holds this plan, the course package and the web reference build; no Xcode project yet. Date of research: 3 November 2026.
 Source studied: `scratchpad/build/src.html` (MODULES, PRESETS, BESPOKE, LAB, lesson format, RULES, `lessonPrompt`, `gradePrompt`, `chatPrompt`, Store, review logic, THEMES, FONTS).
 
 Citations in square brackets point to the Sources list at the end. Items marked **(unverified)** are on the list at the end.
@@ -12,17 +12,27 @@ Citations in square brackets point to the Sources list at the end. Items marked 
 | Area | Decision |
 |---|---|
 | Platform | iPhone first, SwiftUI, adaptive enough for iPad. Mac later. |
-| Deployment target | **iOS 26.1**. Liquid Glass APIs are iOS 26.0 [A1–A4], and `tabViewBottomAccessory(isEnabled:)` needs 26.1 [A6]. Build with the current Xcode (27.x). Since 28 April 2026, App Store Connect uploads must be built with Xcode 26 or later against the iOS 26 SDK [A9]. |
+| Deployment target | **iOS 26.1** (the owner's iPhone 17 Pro Max runs current iOS 26). Liquid Glass APIs are iOS 26.0 [A1–A4], and `tabViewBottomAccessory(isEnabled:)` needs 26.1 [A6]. Build with the current Xcode (27.x). Since 28 April 2026, App Store Connect uploads must be built with Xcode 26 or later against the iOS 26 SDK [A9]. |
 | Design | System components first, so Liquid Glass comes from the OS. Custom `glassEffect` only on floating controls in the navigation layer: the Lab control cluster and the reader's equation shelf. Lesson content is never glass [A8]. |
 | Content | A versioned **course package**: `course.json` manifest, lesson files in the format the web app already uses (`TITLE/ABSTRACT/===BODY===/===QUESTIONS===/===KEY===/===REFERENCES===`), JSON model specs, and prompt templates. The web page and the app both read it. |
 | Lesson rendering | A native block renderer. swift-markdown parses to an AST, then to `Block`s. Prose renders through TextKit 2 (`UITextView`), which gives real range selection for Explain and Ask and makes pagination possible. Maths renders with SwiftMath, CI lints every expression, and a KaTeX-in-`WebView` snapshot is the fallback for any expression SwiftMath can't render. |
 | Explorables | The JSON spec maps to native views: `Slider` for each var, a Swift expression evaluator, Swift Charts for plots (including `.log` scales [A12]), and `Canvas` plus `TimelineView` for the bespoke simulations. |
-| Persistence | SwiftData. User state syncs to the CloudKit private database, with a CloudKit-compatible schema [A10]. Course content stays as read-only files and is not stored in SwiftData. Exercise attempts are append-only events. |
-| Claude | A `ClaudeTransport` protocol with three backends: (1) your own key in the Keychain, calling the Messages API directly (personal use; v0.2 default); (2) an optional minimal proxy (Cloudflare Worker); (3) Anthropic **App Attest** through the Claude for Foundation Models package, which needs no key and no proxy but is beta and iOS 27+ [B3, B4]. No API key ships in the binary. |
-| Repo | Private GitHub repo: a thin app target plus SwiftPM packages (`CourseKit`, `Reader`, `Lab`, `Tutor`, `Learning`, `Design`), `content/`, `tools/coursectl`, `web/`, `proxy/`, `docs/`. |
-| CI | Linux GitHub Actions jobs for the pure-Swift packages, content validation and the JS conformance tests. A macOS job runs only on `main` and on tags, or Xcode Cloud (25 free hours a month [C2]). |
+| Persistence | SwiftData, **on-device only** for now: a free Apple ID cannot use iCloud/CloudKit. Keep the schema CloudKit-compatible [A10] so sync can be switched on if a paid membership is added; until then, JSON export and import. Course content stays as read-only files and is not stored in SwiftData. Exercise attempts are append-only events. |
+| Claude | A `ClaudeTransport` protocol with three backends: (1) your own key in the Keychain, calling the Messages API directly (personal use; **the only backend in scope**, same pattern as the FX app's rates key); (2) an optional minimal proxy (Cloudflare Worker); (3) Anthropic **App Attest** through the Claude for Foundation Models package, which needs no key and no proxy but is beta and iOS 27+ [B3, B4]. No API key ships in the binary. |
+| Repo | Public GitHub repo `theVentus/quasar-app` (public, so macOS CI minutes are free): a thin app target plus SwiftPM packages (`CourseKit`, `Reader`, `Lab`, `Tutor`, `Learning`, `Design`), `content/`, `tools/coursectl`, `web/`, `proxy/`, `docs/`. |
+| CI | All builds run on GitHub Actions `macos-26` (no Mac; the owner develops on Windows). XcodeGen generates the project from `App/project.yml`; no `.xcodeproj` in git. Each push to app code runs unit tests, simulator screenshots and slowed transition recordings (pushed to a `ci-shots` branch for review), and an unsigned IPA plus an AltStore source on release `latest`. Failures are re-emitted as annotations. Linux jobs cover the pure-Swift packages, content validation and JS conformance tests. |
 
 ---
+
+## 0a. Constraints confirmed on 3 November 2026
+
+These supersede anything later in this plan that assumes otherwise.
+
+- **No Mac.** The owner develops on Windows. Everything builds on GitHub Actions `macos-26`, as in the FX app (`theVentus/jubilant-octo-potato`).
+- **Free Apple ID, no paid Developer Program.** Install by sideloading: CI publishes an unsigned IPA versioned `1.0.<run_number>` and an `altstore.json` source on release `latest`; AltStore with AltServer (Windows) re-signs every 7 days in the background, with Sideloadly as fallback. Consequences: no CloudKit sync, no TestFlight, no push notifications, no App Attest (backend C), and free provisioning allows 3 sideloaded apps at once (FX already uses one). Bundle id `com.theventus.qbd`.
+- **Public repo.** macOS CI minutes are free, so screenshot runs can happen on every push to app code. Never commit keys; the Claude key lives only in the device Keychain.
+- **Reuse the FX tooling:** `project.yml` (XcodeGen), `pick-sim.py` (newest iOS 26 iPhone 17 Pro Max simulator), `screenshots.sh` with launch arguments for fixed states (here: lesson, theme, layout, model, sheet), slow-motion recordings split into frames for transition checks, failure annotations, and `wait-ci.sh`, which lets Claude wait for a run and read its result from the sandbox.
+- **Design lessons from FX:** the web version was abandoned because CSS blur does not read as Liquid Glass; native is the reason for this app. Glass belongs to the control layer only. Decide `.regular` versus `.clear` glass per appearance from screenshots rather than in advance, and keep backgrounds plain; decorative patterns added to show off refraction were removed in FX.
 
 ## 1. Product vision and principles
 
@@ -496,6 +506,9 @@ Each milestone ends with an internal TestFlight build and a short ADR for every 
 ---
 
 ## 11. Open questions
+
+Answered on 3 November 2026: deployment target iOS 26.1 (Q1); personal sideloaded use only (Q2, backend A); no paid membership (Q5); no Mac. Still open: Q3 (frozen versus personalised lessons), Q4, Q6, Q7, Q8.
+
 
 1. **Deployment target: iOS 26.1 or iOS 27?** iOS 27 shipped in September 2026 [E1, secondary source]. Targeting it would unlock App Attest and Foundation Models (backend C) and the iOS 27 toolbar and tab additions, at the cost of iPhones still on iOS 26. For a personal app, iOS 27 is reasonable. This plan assumes 26.1, as the brief asked.
 2. **Distribution.** Personal or TestFlight only, or eventually the App Store? This decides whether backend A is enough or whether B or C is required, and whether Sign in with Apple is needed.
