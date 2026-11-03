@@ -14,6 +14,8 @@ final class ManifestTests: XCTestCase {
         let pkg = try CoursePackage(root: Fixture.course)
         let m = pkg.manifest
         XCTAssertEqual(m.schema, "qbd.course/1")
+        XCTAssertEqual(m.theme?.landing, "sky")
+        XCTAssertEqual(m.theme?.accent, "#A9C4F5")
         XCTAssertEqual(m.modules.count, 13)
         XCTAssertEqual(m.allLessons.count, 57)
         XCTAssertEqual(m.publishedCount, 1)

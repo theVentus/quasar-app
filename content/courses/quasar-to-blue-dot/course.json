@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "title": "Quasar to Blue Dot",
   "subtitle": "A first-principles course on satellite positioning",
+  "theme": { "accent": "#A9C4F5", "accentDeep": "#41609A", "onAccent": "#132341", "landing": "sky" },
   "language": "en-GB",
   "author": {
     "name": "Daksh Kushwah",

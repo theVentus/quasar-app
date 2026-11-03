@@ -16,12 +16,25 @@ struct QBDApp: App {
 /// Course content is never glass.
 struct RootView: View {
     @Environment(Library.self) private var library
-    @State private var tab: AppTab = .library
+    @AppStorage("lastCourse") private var lastCourse = ""
+    @State private var tab: AppTab = .home
+    @State private var homePath: [Route] = []
     @State private var libraryPath: [Route] = []
     @State private var searchPath: [Route] = []
 
+    /// The app wears the accent of the course you last opened.
+    private var accent: CourseAccent {
+        CourseAccent((library.course(lastCourse) ?? library.courses.first)?.manifest.theme)
+    }
+
     var body: some View {
         TabView(selection: $tab) {
+            Tab("Home", systemImage: "house", value: AppTab.home) {
+                NavigationStack(path: $homePath) {
+                    HomeView(path: $homePath)
+                        .navigationDestination(for: Route.self) { RouteView(route: $0) }
+                }
+            }
             Tab("Library", systemImage: "books.vertical", value: AppTab.library) {
                 NavigationStack(path: $libraryPath) {
                     LibraryView(path: $libraryPath)
@@ -34,9 +47,6 @@ struct RootView: View {
             Tab("Lab", systemImage: "testtube.2", value: AppTab.lab) {
                 NavigationStack { LabView() }
             }
-            Tab("Ask", systemImage: "bubble.left.and.text.bubble.right", value: AppTab.ask) {
-                NavigationStack { AskView() }
-            }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) {
                     SearchView()
@@ -45,27 +55,35 @@ struct RootView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewBottomAccessory(isEnabled: !isReading) {
+        .tabViewBottomAccessory(isEnabled: showsAccessory) {
             NowReadingAccessory { course, lesson in
-                tab = .library
-                libraryPath = [.course(course), .lesson(course: course, lesson: lesson)]
+                tab = .home
+                homePath = [.course(course), .lesson(course: course, lesson: lesson)]
             }
         }
+        .environment(\.accent, accent)
+        .tint(accent.tint)
         .onAppear(perform: applyLaunchState)
     }
 
-    /// The accessory resumes reading, so it steps aside while a lesson is open.
-    private var isReading: Bool {
-        let path = tab == .search ? searchPath : libraryPath
-        if case .lesson = path.last { return true }
-        return false
+    /// The resume pill steps aside on Home (the landing page is the resume) and while a lesson is open.
+    private var showsAccessory: Bool {
+        let path: [Route]
+        switch tab {
+        case .home: return false
+        case .library: path = libraryPath
+        case .search: path = searchPath
+        default: path = []
+        }
+        if case .lesson = path.last { return false }
+        return true
     }
 
     private func applyLaunchState() {
         if let t = LaunchState.tab { tab = t }
         guard let c = library.courses.first else { return }
-        if LaunchState.openCourse { libraryPath = [.course(c.id)] }
-        if let l = LaunchState.openLesson { tab = .library; libraryPath = [.course(c.id), .lesson(course: c.id, lesson: l)] }
+        if LaunchState.openCourse { tab = .home; homePath = [.course(c.id)] }
+        if let l = LaunchState.openLesson { tab = .home; homePath = [.course(c.id), .lesson(course: c.id, lesson: l)] }
     }
 }
 

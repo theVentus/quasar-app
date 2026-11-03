@@ -8,6 +8,7 @@ public struct CourseManifest: Codable, Hashable, Sendable {
     public var title: String
     public var subtitle: String
     public var language: String?
+    public var theme: Theme?
     public var modules: [Module]
     public var lab: [LabEntry]
     public var references: [Reference]
@@ -52,6 +53,15 @@ public struct CourseManifest: Codable, Hashable, Sendable {
     public struct Reference: Codable, Hashable, Sendable {
         public var text: String
         public var url: String?
+    }
+
+    /// Per-course look: a pastel accent for fills, a deeper shade for text and icons on light surfaces,
+    /// the label colour on pastel fills, and the landing backdrop (`sky`).
+    public struct Theme: Codable, Hashable, Sendable {
+        public var accent: String
+        public var accentDeep: String
+        public var onAccent: String?
+        public var landing: String?
     }
 
     public struct Review: Codable, Hashable, Sendable {

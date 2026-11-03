@@ -4,6 +4,7 @@ import CourseKit
 /// Syllabus: the sky as a hero under the navigation bar, and a glass module rail that tracks the scroll.
 struct CourseView: View {
     let course: CoursePackage
+    @AppStorage("lastCourse") private var lastCourse = ""
     @State private var current: Int?
     private var m: CourseManifest { course.manifest }
 
@@ -33,6 +34,7 @@ struct CourseView: View {
                 }
             }
             .onAppear {
+                lastCourse = course.id
                 if let n = LaunchState.scrollTo, m.modules.contains(where: { $0.id == n }) {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo(n, anchor: .top) }
                 }
@@ -76,6 +78,7 @@ struct CourseHero: View {
 
 /// Glass chips; the current module's chip widens to show its title and the glass morphs between them.
 struct ModuleRail: View {
+    @Environment(\.accent) private var accent
     let modules: [CourseManifest.Module]
     let current: Int
     let select: (Int) -> Void
@@ -93,13 +96,13 @@ struct ModuleRail: View {
                                     if on { Text(mod.title).lineLimit(1) }
                                 }
                                 .font(.subheadline)
-                                .foregroundStyle(on ? Color.white : Color.primary)
+                                .foregroundStyle(on ? accent.onPastel : Color.primary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 9)
                                 .contentShape(.capsule)
                             }
                             .buttonStyle(.plain)
-                            .glassEffect(on ? Glass.regular.tint(Color.accentColor.opacity(0.75)).interactive() : Glass.regular.interactive(), in: .capsule)
+                            .glassEffect(on ? Glass.regular.tint(accent.pastel.opacity(0.9)).interactive() : Glass.regular.interactive(), in: .capsule)
                             .id(mod.id)
                             .accessibilityLabel("Module \(mod.id), \(mod.title)")
                             .accessibilityAddTraits(on ? .isSelected : [])
@@ -116,6 +119,7 @@ struct ModuleRail: View {
 }
 
 struct ModuleSection: View {
+    @Environment(\.accent) private var accent
     let course: CoursePackage
     let module: CourseManifest.Module
     private var optional: Bool { module.tag.lowercased().contains("optional") }
@@ -132,8 +136,8 @@ struct ModuleSection: View {
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .foregroundStyle(optional ? Color.secondary : Color.accentColor)
-                    .background(optional ? Color.secondary.opacity(0.12) : Color.accentColor.opacity(0.14), in: .capsule)
+                    .foregroundStyle(optional ? Color.secondary : accent.tint)
+                    .background(optional ? Color.secondary.opacity(0.12) : accent.pastel.opacity(0.35), in: .capsule)
             }
             Text(module.title).font(Typeface.serif(28))
             Text(module.why)

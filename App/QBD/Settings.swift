@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ThemeSwatches: View {
+    @Environment(\.accent) private var accent
     @Binding var themeRaw: String
 
     var body: some View {
@@ -15,7 +16,7 @@ struct ThemeSwatches: View {
                             .frame(width: 48, height: 48)
                             .background(t.background, in: .circle)
                             .overlay {
-                                Circle().strokeBorder(on ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: on ? 2.5 : 0.5)
+                                Circle().strokeBorder(on ? accent.tint : Color.secondary.opacity(0.35), lineWidth: on ? 2.5 : 0.5)
                             }
                         Text(t.label).font(.caption2).foregroundStyle(.secondary)
                     }
@@ -31,6 +32,7 @@ struct ThemeSwatches: View {
 }
 
 struct TextSizeControl: View {
+    @Environment(\.accent) private var accent
     @Binding var textSize: Double
 
     var body: some View {
@@ -40,6 +42,7 @@ struct TextSizeControl: View {
             }
             .accessibilityLabel("Smaller text")
             Slider(value: $textSize, in: 15...24, step: 0.5)
+                .tint(accent.pastel)
             Button { withAnimation(.snappy) { textSize = min(24, textSize + 1) } } label: {
                 Text("A").font(Typeface.serif(24)).frame(width: 32, height: 32).contentShape(.rect)
             }
@@ -50,7 +53,6 @@ struct TextSizeControl: View {
 }
 
 struct AppSettingsView: View {
-    @AppStorage("libraryStyle") private var libraryStyle = "sky"
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
     @Environment(\.dismiss) private var dismiss
@@ -58,17 +60,6 @@ struct AppSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("Library", selection: $libraryStyle) {
-                        Text("Night sky").tag("sky")
-                        Text("Posters").tag("poster")
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("Library")
-                } footer: {
-                    Text("Night sky gives each course the whole screen. Posters stack courses as cards.")
-                }
                 Section("Reading") {
                     ThemeSwatches(themeRaw: $themeRaw).padding(.vertical, 4)
                     TextSizeControl(textSize: $textSize)

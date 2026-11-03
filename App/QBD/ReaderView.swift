@@ -8,6 +8,7 @@ struct ReaderView: View {
 
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
+    @AppStorage("lastCourse") private var lastCourse = ""
     @State private var panelOpen = false
     @State private var showContents = false
     @State private var compact = false
@@ -84,6 +85,7 @@ struct ReaderView: View {
     }
 
     private func applyLaunchState(_ proxy: ScrollViewProxy) {
+        lastCourse = course.id
         if let n = LaunchState.scrollTo {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo(n, anchor: .top) }
         }
@@ -194,6 +196,7 @@ struct ReaderBar: View {
 }
 
 struct ProgressPill: View {
+    @Environment(\.accent) private var accent
     let section: String
     let progress: Double
     let compact: Bool
@@ -211,7 +214,7 @@ struct ProgressPill: View {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.12))
-                    Capsule().fill(Color.accentColor).frame(width: max(3, g.size.width * progress))
+                    Capsule().fill(accent.pastel).frame(width: max(3, g.size.width * progress))
                 }
             }
             .frame(height: 3)

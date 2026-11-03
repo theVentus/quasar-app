@@ -30,19 +30,17 @@ burst() {
 
 for mode in light dark; do
   xcrun simctl ui "$UDID" appearance $mode
-  shot "library-sky-$mode" -tab library -libraryStyle sky
-  shot "library-poster-$mode" -tab library -libraryStyle poster
+  shot "home-$mode" -tab home
+  shot "library-$mode" -tab library
   shot "course-$mode" -course YES
 done
 xcrun simctl ui "$UDID" appearance light
 shot course-scrolled -course YES -scroll 2
-burst sky 4 1.5 3 -tab library -libraryStyle sky
 shot lesson-sepia -open 0-1 -theme sepia
 shot lesson-paper-compact -open 0-1 -theme paper -scroll 12
 shot lesson-night -open 0-1 -theme night -scroll 30
-shot lesson-dusk-end -open 0-1 -theme dusk -scroll 10000
 shot panel -open 0-1 -theme sepia -showSettings YES
-burst morph 5 0.7 5 -open 0-1 -theme paper -showSettings YES -slowmo YES
+burst morph 2 0.6 4 -open 0-1 -theme paper -showSettings YES -slowmo YES
 shot contents -open 0-1 -theme sepia -showContents YES
-shot settings -tab library -appSettings YES
+shot settings -tab home -appSettings YES
 shot lab -tab lab

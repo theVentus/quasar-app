@@ -43,7 +43,7 @@ enum Route: Hashable {
 }
 
 enum AppTab: String, Hashable {
-    case library, review, lab, ask, search
+    case home, library, review, lab, search
 }
 
 /// Launch arguments for fixed states, used by CI screenshots (`-tab lab`, `-open 0-1`, `-theme night`, `-showSettings YES`, `-scroll 12`).
