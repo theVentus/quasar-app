@@ -13,39 +13,82 @@ struct ReviewView: View {
     }
 }
 
-/// Lab: every interactive model across installed courses.
+/// Lab: every interactive model across installed courses. Explore models open live; bespoke engines follow.
 struct LabView: View {
     @Environment(Library.self) private var library
+    @State private var open: LabTarget?
+
+    struct LabTarget: Hashable, Identifiable {
+        var course: String
+        var model: String
+        var id: String { course + "/" + model }
+    }
 
     var body: some View {
         List {
             ForEach(library.courses) { course in
                 Section(course.manifest.title) {
                     ForEach(course.manifest.lab) { entry in
-                        HStack(alignment: .top, spacing: 14) {
-                            Image(systemName: "testtube.2")
-                                .foregroundStyle(.tint)
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(entry.title).font(Typeface.serif(18))
-                                Text(entry.blurb).font(.subheadline).foregroundStyle(.secondary)
-                                Text("Lesson \(entry.lesson.replacingOccurrences(of: "-", with: ".")) · \(entry.`where`)")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                        let live = course.exploreModel(entry.model) != nil
+                        Button { if live { open = LabTarget(course: course.id, model: entry.model) } } label: {
+                            HStack(alignment: .top, spacing: 14) {
+                                Image(systemName: live ? "slider.horizontal.3" : "testtube.2")
+                                    .foregroundStyle(.tint)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(entry.title).font(Typeface.serif(18)).foregroundStyle(.primary)
+                                    Text(entry.blurb).font(.subheadline).foregroundStyle(.secondary)
+                                    Text("Lesson \(entry.lesson.replacingOccurrences(of: "-", with: ".")) · " + (live ? entry.`where` : "simulation arrives with the full Lab"))
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                Spacer(minLength: 0)
+                                if live { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary) }
                             }
+                            .padding(.vertical, 4)
+                            .contentShape(.rect)
                         }
-                        .padding(.vertical, 4)
+                        .buttonStyle(.plain)
                         .accessibilityElement(children: .combine)
                     }
                 }
             }
-            Section {
-                Text("Models become live, with sliders and plots, in v0.3.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
         }
         .navigationTitle("Lab")
+        .navigationDestination(item: $open) { t in
+            if let c = library.course(t.course), let m = c.exploreModel(t.model) {
+                LabModelPage(course: c, model: m)
+            }
+        }
+        .onAppear {
+            if let m = LaunchState.labModel, let c = library.courses.first, open == nil { open = LabTarget(course: c.id, model: m) }
+        }
+    }
+}
+
+/// One model on its own page, in the reader's theme.
+struct LabModelPage: View {
+    let course: CoursePackage
+    let model: ExploreModel
+    @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
+    @AppStorage("textSize") private var textSize = 18.0
+    @Environment(\.colorScheme) private var systemScheme
+
+    var body: some View {
+        let theme = ReadingTheme(rawValue: themeRaw) ?? .sepia
+        ScrollView {
+            ExploreCard(model: model)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+        }
+        .environment(\.reading, ReadingStyle(theme: theme, size: textSize))
+        .environment(\.coursePackage, course)
+        .environment(\.colorScheme, theme.scheme)
+        .toolbarColorScheme(theme.scheme, for: .navigationBar)
+        .statusBarHidden(theme.scheme != systemScheme)
+        .background(theme.background.ignoresSafeArea())
+        .navigationTitle(model.title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

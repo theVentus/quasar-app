@@ -171,3 +171,42 @@ final class QuantityTests: XCTestCase {
         XCTAssertEqual(Quantity.format(3873.6, unit: "m/s"), "3,870 m/s")
     }
 }
+
+final class ExploreModelTests: XCTestCase {
+    private var course: CoursePackage { get throws { try CoursePackage(root: Fixture.course) } }
+
+    func testAllExploreModelsDecodeAndEvaluate() throws {
+        let c = try course
+        for id in ["light-time", "clock-drift", "dilation", "ionosphere"] {
+            let m = try XCTUnwrap(c.exploreModel(id), id)
+            let out = m.evaluate(m.defaults)
+            XCTAssertEqual(out.count, m.outputs.count)
+            XCTAssertFalse(out.contains { $0.text == "—" }, "\(id): \(out)")
+        }
+        XCTAssertNil(c.exploreModel("trilateration"))   // bespoke
+    }
+
+    func testLightTimeOutputs() throws {
+        let m = try XCTUnwrap(try course.exploreModel("light-time"))
+        let out = m.evaluate(["dt": 1e-7])
+        XCTAssertEqual(out[0].text, "30 m")
+        XCTAssertEqual(out[1].text, "a tennis court")
+    }
+
+    func testDilationNetRateAtGPS() throws {
+        let m = try XCTUnwrap(try course.exploreModel("dilation"))
+        let net = m.value(of: "sr + gr", ["h": 20_200_000])
+        XCTAssertEqual(net, 38.5, accuracy: 0.2)
+        let s = m.series(m.defaults, samples: 50)
+        XCTAssertEqual(s.count, 50)
+        XCTAssertEqual(s[0].ys.count, 3)
+    }
+
+    func testLogSweep() throws {
+        let m = try XCTUnwrap(try course.exploreModel("clock-drift"))
+        let s = m.series(m.defaults, samples: 3)
+        XCTAssertEqual(s[0].x, 1, accuracy: 1e-9)
+        XCTAssertEqual(s[2].x, 2_592_000, accuracy: 1e-3)
+        XCTAssertEqual(s[1].x, sqrt(2_592_000), accuracy: 1)   // geometric midpoint
+    }
+}

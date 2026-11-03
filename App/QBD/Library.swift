@@ -73,6 +73,7 @@ enum LaunchState {
     static var openBookContents: String? { defaults.string(forKey: "bookContents") }
     static var openTOC: Int? { defaults.object(forKey: "toc") == nil ? nil : defaults.integer(forKey: "toc") }
     static var libraryBooks: Bool { defaults.bool(forKey: "libraryBooks") }
+    static var labModel: String? { defaults.string(forKey: "labModel") }
     static var hideChrome: Bool { defaults.bool(forKey: "hideChrome") }
     static var landingOverride: String? { defaults.string(forKey: "landing") }
     static var lastItem: String? { defaults.string(forKey: "last") }

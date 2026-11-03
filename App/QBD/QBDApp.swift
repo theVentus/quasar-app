@@ -74,17 +74,14 @@ struct RootView: View {
         .onAppear(perform: applyLaunchState)
     }
 
-    /// The resume pill steps aside on Home (the landing page is the resume) and while a lesson is open.
+    /// The resume pill lives on tab roots only: not on Home (the landing page is the resume), not inside a course or book.
     private var showsAccessory: Bool {
-        let path: [Route]
         switch tab {
         case .home: return false
-        case .library: path = libraryPath
-        case .search: path = searchPath
-        default: path = []
+        case .library: return libraryPath.isEmpty
+        case .search: return searchPath.isEmpty
+        default: return true
         }
-        if case .lesson = path.last { return false }
-        return true
     }
 
     private func applyLaunchState() {

@@ -340,7 +340,7 @@ struct BookContentsView: View {
                 }
             }
             .onScrollTargetVisibilityChange(idType: Int.self, threshold: 0.05) { ids in
-                if let first = ids.min(), first != current { withAnimation(Motion.morph) { current = first } }
+                if let first = ids.min(), first != current { withAnimation(.snappy(duration: 0.25)) { current = first } }
             }
             .safeAreaBar(edge: .top) {
                 if book.outline.hasParts && parts.count > 1 {

@@ -45,7 +45,12 @@ jobs:
             fi
             rm -rf ../vault
           fi
-          echo "::notice title=vault::sealed files in build: $(ls App/build/vault/*.qbdvault 2>/dev/null | wc -l | tr -d ' ')"
+          SEALED=$(ls App/build/vault/*.qbdvault 2>/dev/null | wc -l | tr -d ' ')
+          echo "::notice title=vault::sealed files in build: $SEALED"
+          # Secrets present but nothing sealed means the books silently fell out of the build: stop here.
+          if [ -n "$VAULT_TOKEN" ] && [ -n "$LIBRARY_PASSPHRASE" ] && [ "$SEALED" = "0" ]; then
+            echo "::error title=vault::vault secrets are set but no book was sealed"; exit 1
+          fi
           touch App/build/vault/.keep
 
       - name: Generate project

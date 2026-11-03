@@ -88,10 +88,14 @@ struct BlockView: View {
             StepsView(steps: steps)
 
         case .widget(let name):
-            LabCard(name: name)
+            WidgetBlock(name: name)
 
         case .explore(let json):
-            LabCard(name: Self.exploreName(json))
+            if let model = try? ExploreModel.load(Data(json.utf8)) {
+                ExploreCard(model: model)
+            } else {
+                LabCard(name: Self.exploreName(json))
+            }
 
         case .code(let code):
             ScrollView(.horizontal, showsIndicators: false) {
@@ -385,4 +389,19 @@ struct ReferencesView: View {
 extension EnvironmentValues {
     /// Lab models of the course being read, keyed by model id, so lesson cards can name them.
     @Entry var labEntries: [String: CourseManifest.LabEntry] = [:]
+}
+
+/// A `widget` block: the course's explore model, live; bespoke engines show a card until the Lab lands.
+struct WidgetBlock: View {
+    @Environment(\.coursePackage) private var course
+    @Environment(\.labEntries) private var lab
+    let name: String
+
+    var body: some View {
+        if let model = course?.exploreModel(name) {
+            ExploreCard(model: model)
+        } else {
+            BespokeModelCard(title: lab[name]?.title ?? LabCard.title(name))
+        }
+    }
 }

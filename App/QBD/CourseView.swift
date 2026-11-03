@@ -27,7 +27,7 @@ struct CourseView: View {
                 }
             }
             .onScrollTargetVisibilityChange(idType: Int.self, threshold: 0.05) { ids in
-                if let first = ids.min(), first != current { withAnimation(Motion.morph) { current = first } }
+                if let first = ids.min(), first != current { withAnimation(.snappy(duration: 0.25)) { current = first } }
             }
             .safeAreaBar(edge: .top) {
                 ModuleRail(modules: m.modules, current: current ?? 0) { id in

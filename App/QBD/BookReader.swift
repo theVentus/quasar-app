@@ -72,6 +72,7 @@ struct BookReaderView: View {
     @AppStorage("bookJustify") private var justify = true
     @AppStorage("bookPaged") private var paged = true
     @AppStorage("lastItem") private var lastItem = ""
+    @Environment(\.colorScheme) private var systemScheme
 
     @State private var spine = 0
     @State private var target: BookTarget = .fraction(0)
@@ -144,8 +145,9 @@ struct BookReaderView: View {
             }
         }
         .environment(\.reading, ReadingStyle(theme: theme, size: textSize))
-        .preferredColorScheme(theme.scheme)
-        .statusBarHidden(!chrome)
+        .environment(\.colorScheme, theme.scheme)
+        .toolbarColorScheme(theme.scheme, for: .navigationBar)
+        .statusBarHidden(!chrome || theme.scheme != systemScheme)
         .sheet(isPresented: $showContents) {
             BookContentsSheet(book: book, currentTOC: entry?.id) { tocID in
                 showContents = false
@@ -476,6 +478,7 @@ enum BookScript {
           body * { color: inherit !important; background-color: transparent !important; line-height: inherit !important; max-width: 100%; }
           a, a * { color: ${s.accent} !important; text-decoration: none !important; }
           img, svg, video { max-width: 100% !important; height: auto !important; object-fit: contain; }
+          h1, h2, h3, h4, h5, h6 { -webkit-hyphens: manual !important; hyphens: manual !important; }
           .qbd-ragged { text-align: left !important; }
           ::selection { background: ${s.accent}66; }
           html.qbd-paged { height: 100vh !important; overflow-y: hidden !important; }

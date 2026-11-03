@@ -37,6 +37,9 @@ done
 xcrun simctl ui "$UDID" appearance light
 shot course-scrolled -course YES -scroll 2
 shot lesson-sepia -open 0-1 -theme sepia
+shot lesson-widget -open 0-1 -theme sepia -scroll -1
+shot lesson-widget-night -open 0-1 -theme night -scroll -2
+shot lab-model -tab lab -labModel clock-drift
 shot lesson-paper-compact -open 0-1 -theme paper -scroll 12
 shot lesson-night -open 0-1 -theme night -scroll 30
 shot panel -open 0-1 -theme sepia -showSettings YES
