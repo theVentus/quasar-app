@@ -35,15 +35,17 @@ jobs:
           LIBRARY_PASSPHRASE: ${{ secrets.LIBRARY_PASSPHRASE }}
         run: |
           mkdir -p App/build/vault
+          has() { [ -n "$1" ] && echo set || echo missing; }
+          echo "::notice title=vault::VAULT_TOKEN $(has "$VAULT_TOKEN"), LIBRARY_PASSPHRASE $(has "$LIBRARY_PASSPHRASE")"
           if [ -n "$VAULT_TOKEN" ] && [ -n "$LIBRARY_PASSPHRASE" ]; then
             git clone -q --depth 1 "https://x-access-token:${VAULT_TOKEN}@github.com/${{ github.repository_owner }}/quasar-vault" ../vault
+            echo "::notice title=vault::book folders: $(find ../vault/books -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' '), epubs: $(find ../vault/books -name '*.epub' 2>/dev/null | wc -l | tr -d ' ')"
             if [ -d ../vault/books ]; then
               (cd Packages/QBDKit && swift run -c release qbd-seal ../../../vault/books ../../App/build/vault) 2>&1 | tail -3 | tee -a ci.log
             fi
             rm -rf ../vault
-          else
-            echo "No vault secrets: building without books" | tee -a ci.log
           fi
+          echo "::notice title=vault::sealed files in build: $(ls App/build/vault/*.qbdvault 2>/dev/null | wc -l | tr -d ' ')"
           touch App/build/vault/.keep
 
       - name: Generate project
