@@ -1,0 +1,16 @@
+{
+  "schema": "qbd.book/1",
+  "id": "field-guide",
+  "subtitle": "Clocks, signals and the edge of the sky",
+  "theme": {
+    "accent": "#F2CDA7",
+    "accentDeep": "#8A5A2B",
+    "onAccent": "#3A2410",
+    "landing": "cover"
+  },
+  "contents": {
+    "style": "outline",
+    "titleCase": true
+  },
+  "startAt": "index_split_001.html"
+}

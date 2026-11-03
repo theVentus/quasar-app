@@ -27,6 +27,25 @@ jobs:
       - name: CourseKit tests
         run: cd Packages/QBDKit && swift test 2>&1 | tee -a ../../ci.log
 
+      # Books live in the private quasar-vault repo. They are sealed with the library passphrase so the public IPA
+      # carries only ciphertext. Without both secrets the app builds with no books. Logs print counts only.
+      - name: Seal books from the vault
+        env:
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+          LIBRARY_PASSPHRASE: ${{ secrets.LIBRARY_PASSPHRASE }}
+        run: |
+          mkdir -p App/build/vault
+          if [ -n "$VAULT_TOKEN" ] && [ -n "$LIBRARY_PASSPHRASE" ]; then
+            git clone -q --depth 1 "https://x-access-token:${VAULT_TOKEN}@github.com/${{ github.repository_owner }}/quasar-vault" ../vault
+            if [ -d ../vault/books ]; then
+              (cd Packages/QBDKit && swift run -c release qbd-seal ../../../vault/books ../../App/build/vault) 2>&1 | tail -3 | tee -a ci.log
+            fi
+            rm -rf ../vault
+          else
+            echo "No vault secrets: building without books" | tee -a ci.log
+          fi
+          touch App/build/vault/.keep
+
       - name: Generate project
         run: brew install xcodegen && cd App && xcodegen generate 2>&1 | tee -a ../ci.log
 

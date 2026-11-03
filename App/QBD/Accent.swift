@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import CourseKit
+import BookKit
 
 /// A course's pastel accent. Pastels fill (prominent buttons, selected chips, progress); the deeper shade carries
 /// text and icons on light surfaces, where a pastel would be too faint to read.
@@ -11,9 +12,17 @@ struct CourseAccent {
     let tint: Color
 
     init(_ theme: CourseManifest.Theme?) {
-        let p = Self.hex(theme?.accent) ?? 0xA9C4F5
-        let d = Self.hex(theme?.accentDeep) ?? 0x41609A
-        let on = Self.hex(theme?.onAccent) ?? 0x132341
+        self.init(accent: theme?.accent, deep: theme?.accentDeep, on: theme?.onAccent)
+    }
+
+    init(_ theme: BookManifest.Theme?) {
+        self.init(accent: theme?.accent, deep: theme?.accentDeep, on: theme?.onAccent)
+    }
+
+    init(accent: String?, deep: String?, on: String?) {
+        let p = Self.hex(accent) ?? 0xA9C4F5
+        let d = Self.hex(deep) ?? 0x41609A
+        let on = Self.hex(on) ?? 0x132341
         pastel = Color(hex: p)
         onPastel = Color(hex: on)
         tint = Color(uiColor: UIColor { traits in
@@ -21,7 +30,7 @@ struct CourseAccent {
         })
     }
 
-    static let standard = CourseAccent(nil)
+    static let standard = CourseAccent(accent: nil, deep: nil, on: nil)
 
     static func hex(_ s: String?) -> UInt32? {
         guard var s else { return nil }

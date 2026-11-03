@@ -5,6 +5,7 @@ import CourseKit
 struct CourseView: View {
     let course: CoursePackage
     @AppStorage("lastCourse") private var lastCourse = ""
+    @AppStorage("lastItem") private var lastItem = ""
     @State private var current: Int?
     private var m: CourseManifest { course.manifest }
 
@@ -35,6 +36,7 @@ struct CourseView: View {
             }
             .onAppear {
                 lastCourse = course.id
+                lastItem = "course:" + course.id
                 if let n = LaunchState.scrollTo, m.modules.contains(where: { $0.id == n }) {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo(n, anchor: .top) }
                 }

@@ -1,32 +1,45 @@
 import SwiftUI
 import CourseKit
+import BookKit
 
 /// Every installed course as a poster card.
 struct LibraryView: View {
     @Environment(Library.self) private var library
+    @Environment(Bookshelf.self) private var shelf
     @AppStorage("lastCourse") private var lastCourse = ""
     @Binding var path: [Route]
     @State private var showSettings = false
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 20) {
+                ShelfHeader(title: "Courses", count: library.courses.count)
                 ForEach(Array(library.courses.enumerated()), id: \.offset) { _, course in
                     PosterCard(course: course) { lessonID in
                         lastCourse = course.id
                         path = lessonID.map { [.course(course.id), .lesson(course: course.id, lesson: $0)] } ?? [.course(course.id)]
                     }
                 }
-                Text("New courses appear here as they are written.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
+                if !shelf.books.isEmpty || shelf.lockedCount > 0 {
+                    ShelfHeader(title: "Books", count: shelf.books.count).padding(.top, 12).id("books")
+                    if shelf.lockedCount > 0 { LockedBooksCard() }
+                    ForEach(shelf.books) { book in
+                        BookPoster(book: book) { route in path = [route] }
+                    }
+                }
                 if let e = library.loadError {
                     Text(e).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
+        }
+        .onAppear {
+            if LaunchState.libraryBooks {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo("books", anchor: .top) }
+            }
+        }
         }
         .navigationTitle("Library")
         .toolbar {
@@ -38,6 +51,21 @@ struct LibraryView: View {
         .sheet(isPresented: $showSettings) {
             AppSettingsView().presentationDetents([.medium, .large])
         }
+    }
+}
+
+struct ShelfHeader: View {
+    let title: String
+    let count: Int
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).font(Typeface.serif(26))
+            Spacer()
+            Text("\(count)").font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 4)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

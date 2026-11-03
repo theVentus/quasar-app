@@ -44,3 +44,14 @@ burst morph 2 0.6 4 -open 0-1 -theme paper -showSettings YES -slowmo YES
 shot contents -open 0-1 -theme sepia -showContents YES
 shot settings -tab home -appSettings YES
 shot lab -tab lab
+# Books (sample book only: real books are never rendered on public CI)
+B=(-fixtureBooks YES)
+shot books-library "${B[@]}" -tab library -libraryBooks YES
+shot book-home "${B[@]}" -tab home -last book:field-guide
+shot book-home-web "${B[@]}" -tab home -last book:field-guide -landing web
+shot book-contents "${B[@]}" -bookContents field-guide -last book:field-guide
+shot book-page-sepia "${B[@]}" -openBook field-guide -theme sepia
+shot book-page-night "${B[@]}" -openBook field-guide -theme night -toc 1 -hideChrome YES
+shot book-page-scroll "${B[@]}" -openBook field-guide -theme paper -bookPaged NO -toc 2
+shot book-panel "${B[@]}" -openBook field-guide -theme sepia -showSettings YES
+shot book-toc "${B[@]}" -openBook field-guide -theme dusk -showContents YES

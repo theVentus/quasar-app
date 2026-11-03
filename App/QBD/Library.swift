@@ -40,6 +40,18 @@ final class Library {
 enum Route: Hashable {
     case course(String)
     case lesson(course: String, lesson: String)
+    case bookContents(String)
+    case book(id: String, toc: Int?)
+}
+
+/// What Home shows: the last course or book opened (`lastItem` = "course:<id>" or "book:<id>").
+enum LastItem {
+    case course(String), book(String)
+    init?(_ raw: String) {
+        if raw.hasPrefix("book:") { self = .book(String(raw.dropFirst(5))) }
+        else if raw.hasPrefix("course:") { self = .course(String(raw.dropFirst(7))) }
+        else { return nil }
+    }
 }
 
 enum AppTab: String, Hashable {
@@ -56,5 +68,13 @@ enum LaunchState {
     static var showContents: Bool { defaults.bool(forKey: "showContents") }
     static var showAppSettings: Bool { defaults.bool(forKey: "appSettings") }
     static var slowmo: Bool { defaults.bool(forKey: "slowmo") }
+    static var fixtureBooks: Bool { defaults.bool(forKey: "fixtureBooks") }
+    static var openBook: String? { defaults.string(forKey: "openBook") }
+    static var openBookContents: String? { defaults.string(forKey: "bookContents") }
+    static var openTOC: Int? { defaults.object(forKey: "toc") == nil ? nil : defaults.integer(forKey: "toc") }
+    static var libraryBooks: Bool { defaults.bool(forKey: "libraryBooks") }
+    static var hideChrome: Bool { defaults.bool(forKey: "hideChrome") }
+    static var landingOverride: String? { defaults.string(forKey: "landing") }
+    static var lastItem: String? { defaults.string(forKey: "last") }
     static var scrollTo: Int? { defaults.object(forKey: "scroll") == nil ? nil : defaults.integer(forKey: "scroll") }
 }

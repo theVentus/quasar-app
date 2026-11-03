@@ -9,6 +9,7 @@ struct ReaderView: View {
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
     @AppStorage("lastCourse") private var lastCourse = ""
+    @AppStorage("lastItem") private var lastItem = ""
     @State private var panelOpen = false
     @State private var showContents = false
     @State private var compact = false
@@ -86,6 +87,7 @@ struct ReaderView: View {
 
     private func applyLaunchState(_ proxy: ScrollViewProxy) {
         lastCourse = course.id
+        lastItem = "course:" + course.id
         if let n = LaunchState.scrollTo {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo(n, anchor: .top) }
         }

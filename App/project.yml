@@ -23,9 +23,19 @@ targets:
       - path: ../content/courses
         type: folder
         buildPhase: resources
+      # Plain sample book for CI screenshots (original text, public).
+      - path: ../content/fixtures/fixture-books
+        type: folder
+        buildPhase: resources
+      # Sealed books from the private vault, written by CI (qbd-seal). Never committed.
+      - path: build/vault
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: QBDKit
         product: CourseKit
+      - package: QBDKit
+        product: BookKit
       - package: SwiftMath
     info:
       path: QBD/Info.plist

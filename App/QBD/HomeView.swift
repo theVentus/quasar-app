@@ -1,16 +1,29 @@
 import SwiftUI
 import CourseKit
+import BookKit
 
-/// Home is the landing page of the course you last opened, drawn in that course's own style.
+/// Home is the landing page of the course or book you last opened, drawn in its own style.
 struct HomeView: View {
     @Environment(Library.self) private var library
+    @Environment(Bookshelf.self) private var shelf
     @AppStorage("lastCourse") private var lastCourse = ""
+    @AppStorage("lastItem") private var lastItem = ""
     @Binding var path: [Route]
     @State private var showSettings = false
 
+    private var lastBook: Book? {
+        if case .book(let id)? = LastItem(LaunchState.lastItem ?? lastItem) { return shelf.book(id) }
+        return nil
+    }
+
     var body: some View {
         Group {
-            if let course = library.course(lastCourse) ?? library.courses.first {
+            if let book = lastBook {
+                BookLanding(book: book, showSettings: $showSettings) { route in
+                    path = [route]
+                }
+                .environment(\.accent, CourseAccent(book.manifest.theme))
+            } else if let course = library.course(lastCourse) ?? library.courses.first {
                 CourseLanding(course: course, showSettings: $showSettings) { lessonID in
                     path = lessonID.map { [.course(course.id), .lesson(course: course.id, lesson: $0)] } ?? [.course(course.id)]
                 }
