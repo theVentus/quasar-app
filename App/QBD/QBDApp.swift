@@ -45,13 +45,20 @@ struct RootView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewBottomAccessory {
+        .tabViewBottomAccessory(isEnabled: !isReading) {
             NowReadingAccessory { course, lesson in
                 tab = .library
                 libraryPath = [.course(course), .lesson(course: course, lesson: lesson)]
             }
         }
         .onAppear(perform: applyLaunchState)
+    }
+
+    /// The accessory resumes reading, so it steps aside while a lesson is open.
+    private var isReading: Bool {
+        let path = tab == .search ? searchPath : libraryPath
+        if case .lesson = path.last { return true }
+        return false
     }
 
     private func applyLaunchState() {

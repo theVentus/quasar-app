@@ -35,6 +35,7 @@ struct ReaderView: View {
             }
         }
         .environment(\.reading, ReadingStyle(theme: theme, size: textSize))
+        .environment(\.labEntries, Dictionary(course.manifest.lab.map { ($0.model, $0) }, uniquingKeysWith: { a, _ in a }))
         .background(theme.background.ignoresSafeArea())
         .preferredColorScheme(theme.scheme)
         .toolbar(.hidden, for: .tabBar)
@@ -55,6 +56,8 @@ struct ReaderView: View {
 }
 
 struct LessonBody: View {
+    /// Scroll anchor for the exercises (`-scroll 10000`).
+    static let exercisesAnchor = 10_000
     @Environment(\.reading) private var r
     let lesson: Lesson
     let ref: CourseManifest.LessonRef
@@ -89,6 +92,7 @@ struct LessonBody: View {
 
             if !lesson.questions.isEmpty {
                 ExercisesView(questions: lesson.questions, number: numbers.next)
+                    .id(LessonBody.exercisesAnchor)
             }
             if !lesson.references.isEmpty {
                 ReferencesView(references: lesson.references)

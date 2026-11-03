@@ -29,7 +29,8 @@ xcrun simctl ui "$UDID" appearance light
 for t in sepia paper dusk night; do shot "lesson-$t" -open 0-1 -theme $t; done
 shot lesson-mid -open 0-1 -theme sepia -scroll 12
 shot lesson-steps -open 0-1 -theme paper -scroll 24
-shot lesson-end -open 0-1 -theme night -scroll 60
+shot lesson-end -open 0-1 -theme night -scroll 10000
+shot reading-dark -open 0-1 -theme dusk -scroll 30
 shot settings -open 0-1 -theme sepia -showSettings YES
 shot lab -tab lab
 shot search -tab search

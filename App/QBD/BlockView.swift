@@ -124,13 +124,9 @@ struct TheoremView: View {
     var body: some View {
         let tint = r.theme.tint(for: kind)
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(kind.label + (number.map { " \($0)" } ?? ""))
-                    .font(Typeface.serif(r.size, bold: true))
-                if let title {
-                    Text("(\(title))").font(Typeface.serif(r.size))
-                }
-            }
+            (Text(kind.label + (number.map { " \($0)" } ?? "")).font(Typeface.serif(r.size, bold: true))
+                + Text(title.map { "  (\($0))" } ?? "").font(Typeface.serif(r.size)))
+                .fixedSize(horizontal: false, vertical: true)
             ForEach(Array(content.enumerated()), id: \.offset) { _, b in
                 BlockView(block: b)
             }
@@ -304,17 +300,21 @@ struct StepsView: View {
 /// Interactive models open in the Lab (v0.3). Until then the card names the model and where it lives.
 struct LabCard: View {
     @Environment(\.reading) private var r
+    @Environment(\.labEntries) private var lab
     let name: String
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
             Image(systemName: "testtube.2")
                 .font(.title3)
                 .frame(width: 40, height: 40)
                 .background(r.theme.tint(.blue), in: .circle)
             VStack(alignment: .leading, spacing: 2) {
-                Text(Self.title(name)).font(Typeface.serif(r.size, bold: true))
-                Text("Interactive model · opens in the Lab in v0.3").font(.footnote).foregroundStyle(r.theme.ink3)
+                Text(lab[name]?.title ?? Self.title(name)).font(Typeface.serif(r.size, bold: true))
+                if let blurb = lab[name]?.blurb {
+                    Text(blurb).font(.subheadline).foregroundStyle(r.theme.ink2)
+                }
+                Text("Interactive model · live in the Lab from v0.3").font(.footnote).foregroundStyle(r.theme.ink3)
             }
             Spacer(minLength: 0)
         }
@@ -380,4 +380,9 @@ struct ReferencesView: View {
             }
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Lab models of the course being read, keyed by model id, so lesson cards can name them.
+    @Entry var labEntries: [String: CourseManifest.LabEntry] = [:]
 }
