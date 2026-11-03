@@ -1,0 +1,660 @@
+{
+  "schema": "qbd.course/1",
+  "id": "quasar-to-blue-dot",
+  "version": "0.1.0",
+  "title": "Quasar to Blue Dot",
+  "subtitle": "A first-principles course on satellite positioning",
+  "language": "en-GB",
+  "author": {
+    "name": "Daksh Kushwah",
+    "generator": "claude"
+  },
+  "minAppVersion": "0.1",
+  "modules": [
+    {
+      "id": 0,
+      "title": "Time as distance",
+      "tag": "Essential",
+      "hours": 2,
+      "deps": [],
+      "why": "Satellite positioning measures distance by timing radio signals. This fixes the units, the ranging equation and the scale of the timing problem.",
+      "lessons": [
+        {
+          "id": "0-1",
+          "title": "Time is distance",
+          "file": "lessons/0-1.lesson.md",
+          "status": "published"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "title": "Geometry of position",
+      "tag": "Essential",
+      "hours": 4,
+      "deps": [
+        0
+      ],
+      "why": "A position is a point in three-dimensional space. Coordinates, vectors and distances come before intersecting spheres.",
+      "lessons": [
+        {
+          "id": "1-1",
+          "title": "Coordinates and vectors",
+          "file": "lessons/1-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "1-2",
+          "title": "Distance in three dimensions",
+          "file": "lessons/1-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "1-3",
+          "title": "Spheres and trilateration",
+          "file": "lessons/1-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "1-4",
+          "title": "Earth-centred coordinates",
+          "file": "lessons/1-4.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Solving for position",
+      "tag": "Essential",
+      "hours": 8,
+      "deps": [
+        1
+      ],
+      "why": "The heart of the course: why four satellites are needed, why twenty help, and how noisy ranges become a position.",
+      "lessons": [
+        {
+          "id": "2-1",
+          "title": "Pseudorange and the clock-bias unknown",
+          "file": "lessons/2-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "2-2",
+          "title": "Slopes and linear approximation",
+          "file": "lessons/2-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "2-3",
+          "title": "Iterating to a fix",
+          "file": "lessons/2-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "2-4",
+          "title": "More satellites than unknowns: least squares",
+          "file": "lessons/2-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "2-5",
+          "title": "Geometry and dilution of precision",
+          "file": "lessons/2-5.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "2-6",
+          "title": "Error budgets and covariance",
+          "file": "lessons/2-6.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "How the signal carries time",
+      "tag": "Essential",
+      "hours": 6,
+      "deps": [
+        0
+      ],
+      "why": "How a phone measures a 67 ms travel time to within nanoseconds: carriers, codes, correlation and phase.",
+      "lessons": [
+        {
+          "id": "3-1",
+          "title": "Waves, frequency and phase",
+          "file": "lessons/3-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "3-2",
+          "title": "Carriers and modulation",
+          "file": "lessons/3-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "3-3",
+          "title": "Spreading codes and correlation",
+          "file": "lessons/3-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "3-4",
+          "title": "Code phase and carrier phase",
+          "file": "lessons/3-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "3-5",
+          "title": "The navigation message",
+          "file": "lessons/3-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Clocks",
+      "tag": "Essential; quantum detail optional",
+      "hours": 4,
+      "deps": [
+        0,
+        3
+      ],
+      "why": "Why the satellites carry atomic clocks and why your phone can get away with quartz.",
+      "lessons": [
+        {
+          "id": "4-1",
+          "title": "Oscillators and stability",
+          "file": "lessons/4-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "4-2",
+          "title": "Quartz: the phone’s clock",
+          "file": "lessons/4-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "4-3",
+          "title": "Atomic transitions and the caesium second",
+          "file": "lessons/4-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "4-4",
+          "title": "Allan deviation and clock steering",
+          "file": "lessons/4-4.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Orbits",
+      "tag": "Essential",
+      "hours": 5,
+      "deps": [
+        1
+      ],
+      "why": "Where each satellite is: gravity, orbital motion and the ephemeris the satellites broadcast.",
+      "lessons": [
+        {
+          "id": "5-1",
+          "title": "Newton’s gravity and potential energy",
+          "file": "lessons/5-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "5-2",
+          "title": "Circular orbits: speed and period",
+          "file": "lessons/5-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "5-3",
+          "title": "Kepler’s laws and ellipses",
+          "file": "lessons/5-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "5-4",
+          "title": "Orbital elements and the broadcast ephemeris",
+          "file": "lessons/5-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "5-5",
+          "title": "Perturbations",
+          "file": "lessons/5-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Relativity in GNSS",
+      "tag": "Essential; Lorentz derivation optional",
+      "hours": 6,
+      "deps": [
+        4,
+        5
+      ],
+      "why": "Clocks in orbit tick at a different rate from clocks on the ground. You derive the 38 μs per day correction yourself and see what fails without it.",
+      "lessons": [
+        {
+          "id": "6-1",
+          "title": "Velocity time dilation",
+          "file": "lessons/6-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "6-2",
+          "title": "Gravitational time dilation",
+          "file": "lessons/6-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "6-3",
+          "title": "Deriving 38 microseconds per day",
+          "file": "lessons/6-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "6-4",
+          "title": "Eccentricity and Sagnac corrections",
+          "file": "lessons/6-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "6-5",
+          "title": "What would actually fail without corrections",
+          "file": "lessons/6-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Propagation errors",
+      "tag": "Essential",
+      "hours": 6,
+      "deps": [
+        2,
+        3
+      ],
+      "why": "The atmosphere and the city: what really delays the signal, and how receivers remove it.",
+      "lessons": [
+        {
+          "id": "7-1",
+          "title": "Refractive index; group and phase velocity",
+          "file": "lessons/7-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "7-2",
+          "title": "The ionosphere and electron content",
+          "file": "lessons/7-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "7-3",
+          "title": "The dual-frequency correction",
+          "file": "lessons/7-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "7-4",
+          "title": "The troposphere and mapping functions",
+          "file": "lessons/7-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "7-5",
+          "title": "Multipath and urban canyons",
+          "file": "lessons/7-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Reference frames and Earth rotation",
+      "tag": "Essential",
+      "hours": 6,
+      "deps": [
+        1,
+        5
+      ],
+      "why": "What “where” means on a spinning, wobbling, drifting planet: frames, Earth orientation and time scales.",
+      "lessons": [
+        {
+          "id": "8-1",
+          "title": "Inertial and rotating frames",
+          "file": "lessons/8-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "8-2",
+          "title": "Terrestrial frames: ITRF and WGS 84",
+          "file": "lessons/8-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "8-3",
+          "title": "Earth orientation parameters",
+          "file": "lessons/8-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "8-4",
+          "title": "Why Earth’s rotation varies",
+          "file": "lessons/8-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "8-5",
+          "title": "Time scales: TAI, UTC, GPS time, UT1",
+          "file": "lessons/8-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "VLBI",
+      "tag": "Essential",
+      "hours": 6,
+      "deps": [
+        3,
+        8
+      ],
+      "why": "How radio telescopes on different continents measure Earth’s rotation against the distant universe.",
+      "lessons": [
+        {
+          "id": "9-1",
+          "title": "Interference and interferometers",
+          "file": "lessons/9-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "9-2",
+          "title": "The geometric delay",
+          "file": "lessons/9-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "9-3",
+          "title": "Correlation and delay measurement",
+          "file": "lessons/9-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "9-4",
+          "title": "Estimating Earth orientation",
+          "file": "lessons/9-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "9-5",
+          "title": "Why satellites cannot deliver UT1",
+          "file": "lessons/9-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Quasars and the ICRF",
+      "tag": "Essential; cosmology maths optional",
+      "hours": 4,
+      "deps": [
+        9
+      ],
+      "why": "What quasars are, why they make good anchors, and where the anchor slips.",
+      "lessons": [
+        {
+          "id": "10-1",
+          "title": "Active galactic nuclei",
+          "file": "lessons/10-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "10-2",
+          "title": "Redshift and cosmic distance",
+          "file": "lessons/10-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "10-3",
+          "title": "Building the ICRF",
+          "file": "lessons/10-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "10-4",
+          "title": "Imperfect anchors: structure and galactic aberration",
+          "file": "lessons/10-4.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "System engineering and frontier",
+      "tag": "Mostly optional",
+      "hours": 4,
+      "deps": [
+        2,
+        9
+      ],
+      "why": "The working system: control segment, multiple constellations, centimetre techniques and threats.",
+      "lessons": [
+        {
+          "id": "11-1",
+          "title": "The control segment at work",
+          "file": "lessons/11-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "11-2",
+          "title": "Multi-GNSS, NavIC and augmentation",
+          "file": "lessons/11-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "11-3",
+          "title": "Centimetres: RTK and PPP",
+          "file": "lessons/11-3.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "11-4",
+          "title": "Jamming, spoofing and resilience",
+          "file": "lessons/11-4.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "11-5",
+          "title": "VGOS, optical clocks and LEO navigation",
+          "file": "lessons/11-5.lesson.md",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Capstone",
+      "tag": "Essential",
+      "hours": 8,
+      "deps": [
+        11
+      ],
+      "why": "Build a position solver, run an error budget and write a technical account of the whole chain, from quasar to position fix.",
+      "lessons": [
+        {
+          "id": "12-1",
+          "title": "Build a position solver",
+          "file": "lessons/12-1.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "12-2",
+          "title": "Run an error budget",
+          "file": "lessons/12-2.lesson.md",
+          "status": "planned"
+        },
+        {
+          "id": "12-3",
+          "title": "Explain the whole chain",
+          "file": "lessons/12-3.lesson.md",
+          "status": "planned"
+        }
+      ]
+    }
+  ],
+  "shorts": [],
+  "lab": [
+    {
+      "model": "light-time",
+      "title": "From timing error to range error",
+      "where": "Module 0",
+      "lesson": "0-1",
+      "blurb": "Turn a timing error into a distance error and see why positioning needs nanoseconds."
+    },
+    {
+      "model": "clock-drift",
+      "title": "How fast a free-running clock drifts",
+      "where": "Modules 0 and 4",
+      "lesson": "0-1",
+      "blurb": "Compare oscillators from phone quartz to caesium and watch how quickly each loses time."
+    },
+    {
+      "model": "trilateration",
+      "title": "Positions from pseudoranges",
+      "where": "Modules 1 and 2",
+      "lesson": "2-1",
+      "blurb": "Drag transmitters and a receiver, add a clock error and noise, and compare a fix that treats the clock as unknown with one that ignores it."
+    },
+    {
+      "model": "dilation",
+      "title": "Orbital clocks: speed against gravity",
+      "where": "Module 6",
+      "lesson": "6-3",
+      "blurb": "Move a clock from low orbit to geostationary altitude and watch the speed and gravity effects trade places."
+    },
+    {
+      "model": "ionosphere",
+      "title": "Ionospheric delay and the two-frequency trick",
+      "where": "Module 7",
+      "lesson": "7-3",
+      "blurb": "Vary the electron content and frequency, and see how two frequencies cancel the ionosphere’s delay."
+    },
+    {
+      "model": "vlbi",
+      "title": "VLBI delay on a rotating Earth",
+      "where": "Module 9",
+      "lesson": "9-2",
+      "blurb": "Rotate Earth under two radio telescopes and see how the arrival-time difference from a quasar tracks Earth’s rotation, down to UT1."
+    }
+  ],
+  "references": [
+    {
+      "text": "BIPM. SI base unit: metre.",
+      "url": "https://www.bipm.org/en/si-base-units/metre"
+    },
+    {
+      "text": "CGPM (1983). Resolution 1: Definition of the metre.",
+      "url": "https://www.bipm.org/committees/cg/cgpm/17-1983/resolution-1"
+    },
+    {
+      "text": "BIPM (2019). The International System of Units (SI Brochure), 9th edition."
+    },
+    {
+      "text": "GPS.gov. Space segment.",
+      "url": "https://www.gps.gov/node/198"
+    },
+    {
+      "text": "N. Ashby (2003). Relativity in the Global Positioning System. Living Reviews in Relativity 6, 1. doi:10.12942/lrr-2003-1.",
+      "url": "https://doaj.org/article/a78541e32b664e9781f49736f651fb21"
+    },
+    {
+      "text": "GPS.gov. GPS accuracy.",
+      "url": "https://www.gps.gov/node/70"
+    },
+    {
+      "text": "J. Wang et al. (2021). Earth orientation parameter estimation by integrating VLBI and GNSS on the observation level. EGU21-616.",
+      "url": "https://meetingorganizer.copernicus.org/EGU21/EGU21-616.html"
+    },
+    {
+      "text": "IRN-IS-200K-001. GPS interface specification revision: Message Type 32, clock and Earth orientation parameters.",
+      "url": "https://www.GPS.gov/technical/icwg/IRN-IS-200K-001.pdf"
+    },
+    {
+      "text": "P. Charlot et al. (2020). The third realization of the International Celestial Reference Frame by very long baseline interferometry. Astronomy & Astrophysics 644, A159.",
+      "url": "https://arxiv.org/abs/2010.13625"
+    }
+  ],
+  "textbooks": [
+    "P. Misra and P. Enge, Global Positioning System: Signals, Measurements, and Performance (2nd ed., 2006)",
+    "E. D. Kaplan and C. J. Hegarty (eds.), Understanding GPS/GNSS: Principles and Applications (3rd ed., 2017)",
+    "P. J. G. Teunissen and O. Montenbruck (eds.), Springer Handbook of Global Navigation Satellite Systems (2017)",
+    "G. Petit and B. Luzum (eds.), IERS Conventions (2010), IERS Technical Note 36",
+    "A. R. Thompson, J. M. Moran and G. W. Swenson, Interferometry and Synthesis in Radio Astronomy (3rd ed., 2017)",
+    "O. Montenbruck and E. Gill, Satellite Orbits: Models, Methods and Applications (2000)",
+    "E. F. Taylor and J. A. Wheeler, Spacetime Physics (2nd ed., 1992)",
+    "G. Strang, Introduction to Linear Algebra",
+    "E. Hecht, Optics",
+    "B. W. Carroll and D. A. Ostlie, An Introduction to Modern Astrophysics (2nd ed., 2007)"
+  ],
+  "mastery": [
+    [
+      "Introductory.",
+      "Explain without notes why GPS is a timing system, why four unknowns need four satellites, the sign and rough size of each error, and why quasars underpin Earth orientation; make order-of-magnitude estimates."
+    ],
+    [
+      "Undergraduate.",
+      "Derive and solve the linearised pseudorange equations; derive 38 μs per day from first principles; compute ionospheric delay and its dual-frequency removal; compute a VLBI delay for a baseline; explain the Earth-fixed to inertial transformation."
+    ],
+    [
+      "Master’s.",
+      "Write and validate a least-squares solver with covariance and dilution of precision; reason about carrier-phase ambiguity in RTK and PPP; explain why satellite orbits and UT1 are entangled and how VLBI separates them; critique how ICRF3 is built; read IGS, IERS and ICRF papers critically."
+    ]
+  ],
+  "calibration": [
+    [
+      "pythagoras",
+      "Pythagoras"
+    ],
+    [
+      "trig",
+      "Sine and cosine"
+    ],
+    [
+      "vectors",
+      "Vectors"
+    ],
+    [
+      "derivative",
+      "Derivative as a slope"
+    ],
+    [
+      "matrices",
+      "Matrix multiplication"
+    ],
+    [
+      "regression",
+      "Linear regression"
+    ]
+  ],
+  "review": {
+    "gapsDays": [
+      1,
+      2,
+      5,
+      12,
+      30
+    ]
+  }
+}

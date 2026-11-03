@@ -1,0 +1,16 @@
+.DS_Store
+# Xcode / SwiftPM
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
+# Builds
+web/dist/
+*.qbdcourse
+# Secrets
+.env
+*.p8
+proxy/.dev.vars
+# Authoring sources stay out of the repo
+authoring/

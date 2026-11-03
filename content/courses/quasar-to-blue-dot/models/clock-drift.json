@@ -1,0 +1,87 @@
+{
+  "spec": "explore/1",
+  "id": "clock-drift",
+  "title": "How fast a free-running clock drifts",
+  "vars": [
+    {
+      "id": "y",
+      "label": "Fractional frequency error",
+      "min": 1e-14,
+      "max": 0.0001,
+      "value": 4.46e-10,
+      "log": true,
+      "presets": [
+        [
+          "Caesium",
+          1e-13
+        ],
+        [
+          "Rubidium",
+          1e-11
+        ],
+        [
+          "Relativity offset",
+          4.46e-10
+        ],
+        [
+          "Compensated quartz",
+          5e-7
+        ],
+        [
+          "Phone quartz",
+          0.000002
+        ]
+      ]
+    },
+    {
+      "id": "T",
+      "label": "Time without correction",
+      "min": 1,
+      "max": 2592000,
+      "value": 86400,
+      "log": true,
+      "unit": "s",
+      "presets": [
+        [
+          "1 s",
+          1
+        ],
+        [
+          "30 s",
+          30
+        ],
+        [
+          "1 h",
+          3600
+        ],
+        [
+          "1 day",
+          86400
+        ]
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "label": "Clock error",
+      "expr": "y*T",
+      "unit": "s"
+    },
+    {
+      "label": "Range error",
+      "expr": "c*y*T",
+      "unit": "m"
+    }
+  ],
+  "plot": {
+    "x": "T",
+    "y": [
+      "c*y*T"
+    ],
+    "logy": true,
+    "xlabel": "Time without correction",
+    "ylabel": "Range error",
+    "yunit": "m"
+  },
+  "caption": "The error grows in proportion to elapsed time, $\\Delta t = y\\,T$, so the plot is a straight line on logarithmic axes. The relativity preset is the net rate at which a GPS satellite clock would gain time if it were not adjusted before launch. Oscillator values are typical orders of magnitude, not specifications."
+}

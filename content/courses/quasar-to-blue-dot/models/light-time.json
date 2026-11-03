@@ -1,0 +1,93 @@
+{
+  "spec": "explore/1",
+  "id": "light-time",
+  "title": "From timing error to range error",
+  "vars": [
+    {
+      "id": "dt",
+      "label": "Timing error",
+      "min": 1e-12,
+      "max": 0.01,
+      "value": 1e-7,
+      "log": true,
+      "unit": "s",
+      "presets": [
+        [
+          "1 ns",
+          1e-9
+        ],
+        [
+          "100 ns",
+          1e-7
+        ],
+        [
+          "1 μs",
+          0.000001
+        ],
+        [
+          "1 ms",
+          0.001
+        ]
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "label": "Range error",
+      "expr": "c*dt",
+      "unit": "m"
+    },
+    {
+      "label": "On the scale of",
+      "expr": "c*dt",
+      "lookup": [
+        [
+          0,
+          "a grain of sand"
+        ],
+        [
+          0.005,
+          "a fingertip"
+        ],
+        [
+          0.1,
+          "a ruler"
+        ],
+        [
+          1,
+          "a person"
+        ],
+        [
+          10,
+          "a tennis court"
+        ],
+        [
+          100,
+          "a city block"
+        ],
+        [
+          1000,
+          "a neighbourhood"
+        ],
+        [
+          10000,
+          "a large city"
+        ],
+        [
+          100000,
+          "a state"
+        ],
+        [
+          1000000,
+          "a subcontinent"
+        ]
+      ]
+    },
+    {
+      "label": "Share of a 20,200 km range",
+      "expr": "100*c*dt/2.02e7",
+      "unit": "%"
+    }
+  ],
+  "caption": "The relation is a strict proportion, $\\Delta d = c\\,\\Delta t$: each factor of ten in timing is a factor of ten in distance. Metre-level positioning therefore needs timing at the level of a few nanoseconds."
+}

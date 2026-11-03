@@ -1,0 +1,95 @@
+{
+  "spec": "explore/1",
+  "id": "dilation",
+  "title": "Orbital clocks: speed against gravity",
+  "vars": [
+    {
+      "id": "h",
+      "label": "Orbit altitude",
+      "min": 200000,
+      "max": 40000000,
+      "value": 20200000,
+      "unit": "m",
+      "presets": [
+        [
+          "ISS",
+          420000
+        ],
+        [
+          "GPS",
+          20200000
+        ],
+        [
+          "Galileo",
+          23200000
+        ],
+        [
+          "Geostationary",
+          35786000
+        ]
+      ]
+    }
+  ],
+  "defs": [
+    [
+      "r",
+      "R_E + h"
+    ],
+    [
+      "v",
+      "sqrt(GM/r)"
+    ],
+    [
+      "sr",
+      "-v^2/(2*c^2)*DAY*1e6"
+    ],
+    [
+      "gr",
+      "GM/c^2*(1/R_E - 1/r)*DAY*1e6"
+    ]
+  ],
+  "outputs": [
+    {
+      "label": "Orbital speed",
+      "expr": "v",
+      "unit": "m/s"
+    },
+    {
+      "label": "Speed effect (special relativity)",
+      "expr": "sr",
+      "unit": "μs/day"
+    },
+    {
+      "label": "Gravity effect (general relativity)",
+      "expr": "gr",
+      "unit": "μs/day"
+    },
+    {
+      "label": "Net rate against the ground",
+      "expr": "sr + gr",
+      "unit": "μs/day"
+    },
+    {
+      "label": "Range drift per day if uncorrected",
+      "expr": "c*abs(sr + gr)*1e-6",
+      "unit": "m"
+    }
+  ],
+  "plot": {
+    "x": "h",
+    "y": [
+      "sr + gr",
+      "gr",
+      "sr"
+    ],
+    "labels": [
+      "Net",
+      "Gravity",
+      "Speed"
+    ],
+    "xlabel": "Altitude",
+    "ylabel": "Clock rate against the ground",
+    "yunit": "μs/day"
+  },
+  "caption": "Circular orbits, with speed $v=\\sqrt{GM/r}$. Low orbits are dominated by the speed effect and their clocks run slow; above about 3,200 km (half an Earth radius) the gravity effect wins and they run fast. The model neglects the ground clock’s own motion with Earth’s rotation (about 0.1 μs per day at the equator) and Earth’s oblateness."
+}
