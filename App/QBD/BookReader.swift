@@ -96,6 +96,8 @@ struct BookReaderView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .toolbar(chrome ? .visible : .hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(!chrome)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) } }
         .onAppear { lastItem = "book:" + bookID }
@@ -143,7 +145,6 @@ struct BookReaderView: View {
         }
         .environment(\.reading, ReadingStyle(theme: theme, size: textSize))
         .preferredColorScheme(theme.scheme)
-        .toolbar(chrome ? .visible : .hidden, for: .navigationBar)
         .statusBarHidden(!chrome)
         .sheet(isPresented: $showContents) {
             BookContentsSheet(book: book, currentTOC: entry?.id) { tocID in
@@ -228,6 +229,9 @@ struct BookWebView: UIViewRepresentable {
         web.scrollView.showsHorizontalScrollIndicator = false
         web.scrollView.showsVerticalScrollIndicator = false
         web.scrollView.decelerationRate = .fast
+        web.scrollView.minimumZoomScale = 1
+        web.scrollView.maximumZoomScale = 1
+        web.scrollView.bouncesZoom = false
         web.allowsLinkPreview = false
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.cancelsTouchesInView = false
@@ -508,6 +512,10 @@ enum BookScript {
       window.qbd = {
         apply(next) {
           s = next;
+          // EPUB documents rarely declare a viewport, so WebKit would lay them out 980 px wide and shrink them.
+          let vp = document.querySelector('meta[name="viewport"]');
+          if (!vp) { vp = document.createElement('meta'); vp.name = 'viewport'; (document.head || document.documentElement).appendChild(vp); }
+          vp.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
           if (!document.documentElement.lang) document.documentElement.lang = s.lang || 'en';
           let el = document.getElementById('qbd-style');
           if (!el) { el = document.createElement('style'); el.id = 'qbd-style'; (document.head || document.documentElement).appendChild(el); }
