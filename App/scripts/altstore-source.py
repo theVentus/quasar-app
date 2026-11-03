@@ -25,7 +25,7 @@ source = {
             "localizedDescription": f"Build {build} from {os.environ.get('GITHUB_SHA', '')[:7]}",
             "downloadURL": f"https://github.com/{repo}/releases/download/latest/QBD.ipa",
             "size": os.path.getsize(ipa),
-            "minOSVersion": "26.0",
+            "minOSVersion": "26.1",
         }],
     }],
     "news": [],

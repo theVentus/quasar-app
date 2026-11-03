@@ -53,5 +53,8 @@ enum LaunchState {
     static var openLesson: String? { defaults.string(forKey: "open") }
     static var openCourse: Bool { defaults.bool(forKey: "course") }
     static var showSettings: Bool { defaults.bool(forKey: "showSettings") }
+    static var showContents: Bool { defaults.bool(forKey: "showContents") }
+    static var showAppSettings: Bool { defaults.bool(forKey: "appSettings") }
+    static var slowmo: Bool { defaults.bool(forKey: "slowmo") }
     static var scrollTo: Int? { defaults.object(forKey: "scroll") == nil ? nil : defaults.integer(forKey: "scroll") }
 }

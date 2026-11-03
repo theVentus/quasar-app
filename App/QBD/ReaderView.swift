@@ -8,7 +8,12 @@ struct ReaderView: View {
 
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
-    @State private var showSettings = false
+    @State private var panelOpen = false
+    @State private var showContents = false
+    @State private var compact = false
+    @State private var progress = 0.0
+    @State private var topVisible = 0
+    @State private var jump: Int?
 
     private var theme: ReadingTheme { ReadingTheme(rawValue: themeRaw) ?? .sepia }
     private var ref: CourseManifest.LessonRef? { course.manifest.lesson(lessonID) }
@@ -16,18 +21,44 @@ struct ReaderView: View {
     var body: some View {
         Group {
             if let lesson = library.lesson(course: course, id: lessonID), let ref {
+                let outline = Outline(lesson)
                 ScrollViewReader { proxy in
                     ScrollView {
                         LessonBody(lesson: lesson, ref: ref, module: course.manifest.module(of: lessonID))
                             .padding(.horizontal, 22)
                             .padding(.top, 8)
-                            .padding(.bottom, 60)
+                            .padding(.bottom, 40)
                     }
-                    .scrollEdgeEffectStyle(.soft, for: .top)
-                    .onAppear {
-                        if let n = LaunchState.scrollTo {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo(n, anchor: .top) }
+                    .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { old, new in
+                        scrolled(from: old, to: new)
+                    }
+                    .onScrollGeometryChange(for: Double.self) { g in
+                        let range = g.contentSize.height - g.containerSize.height + g.contentInsets.top + g.contentInsets.bottom
+                        return range > 0 ? min(1, max(0, (g.contentOffset.y + g.contentInsets.top) / range)) : 0
+                    } action: { _, v in
+                        progress = v
+                    }
+                    .onScrollTargetVisibilityChange(idType: Int.self, threshold: 0.01) { ids in
+                        topVisible = ids.min() ?? 0
+                    }
+                    .safeAreaBar(edge: .bottom) {
+                        ReaderBar(themeRaw: $themeRaw, textSize: $textSize, panelOpen: $panelOpen,
+                                  compact: compact, section: outline.title(at: topVisible), progress: progress) {
+                            showContents = true
                         }
+                    }
+                    .onChange(of: jump) { _, n in
+                        guard let n else { return }
+                        withAnimation(.smooth) { proxy.scrollTo(n, anchor: .top) }
+                        jump = nil
+                    }
+                    .onAppear { applyLaunchState(proxy) }
+                    .sheet(isPresented: $showContents) {
+                        ContentsSheet(outline: outline, currentID: outline.entry(at: topVisible)?.id) { id in
+                            showContents = false
+                            jump = id
+                        }
+                        .presentationDetents([.medium, .large])
                     }
                 }
             } else {
@@ -41,17 +72,183 @@ struct ReaderView: View {
         .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Lesson \(ref?.number ?? lessonID)")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showSettings = true } label: { Image(systemName: "textformat.size") }
-                    .accessibilityLabel("Reading settings")
+        .toolbar { ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) } }
+    }
+
+    /// Scrolling down compacts the bar to a progress pill; scrolling up or nearing the top restores it.
+    private func scrolled(from old: CGFloat, to new: CGFloat) {
+        guard !panelOpen else { return }
+        var next = compact
+        if new < 120 { next = false } else if new - old > 4 { next = true } else if old - new > 4 { next = false }
+        if next != compact { withAnimation(Motion.morph) { compact = next } }
+    }
+
+    private func applyLaunchState(_ proxy: ScrollViewProxy) {
+        if let n = LaunchState.scrollTo {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { proxy.scrollTo(n, anchor: .top) }
+        }
+        if LaunchState.showSettings {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { withAnimation(Motion.morph) { panelOpen = true } }
+        }
+        if LaunchState.showContents {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { showContents = true }
+        }
+    }
+}
+
+/// Headings of a lesson, for the progress pill and the contents sheet.
+struct Outline {
+    struct Entry: Identifiable {
+        let id: Int
+        let number: String
+        let title: String
+        let level: Int
+    }
+    let entries: [Entry]
+    let lessonTitle: String
+
+    init(_ lesson: Lesson) {
+        let numbers = SectionNumbering(lesson.blocks)
+        var e: [Entry] = []
+        for (i, b) in lesson.blocks.enumerated() {
+            if case .heading(let level, let text) = b {
+                e.append(Entry(id: i, number: numbers.label(at: i) ?? "", title: text, level: level))
             }
         }
-        .sheet(isPresented: $showSettings) {
-            ReadingSettingsSheet(themeRaw: $themeRaw, textSize: $textSize)
-                .presentationDetents([.medium, .large])
+        if !lesson.questions.isEmpty {
+            e.append(Entry(id: LessonBody.exercisesAnchor, number: "\(numbers.next)", title: "Exercises", level: 2))
         }
-        .onAppear { if LaunchState.showSettings { showSettings = true } }
+        entries = e
+        lessonTitle = lesson.title
+    }
+
+    func entry(at index: Int) -> Entry? { entries.last { $0.id <= index } }
+    func title(at index: Int) -> String { entry(at: index).map { "\($0.number)  \($0.title)" } ?? lessonTitle }
+}
+
+/// Floating Liquid Glass controls over the page. The Aa button morphs into the appearance panel; the bar
+/// compacts to a single progress pill while reading.
+struct ReaderBar: View {
+    @Environment(\.reading) private var r
+    @Binding var themeRaw: String
+    @Binding var textSize: Double
+    @Binding var panelOpen: Bool
+    let compact: Bool
+    let section: String
+    let progress: Double
+    let showContents: () -> Void
+    @Namespace private var ns
+
+    var body: some View {
+        GlassEffectContainer(spacing: 10) {
+            VStack(spacing: 10) {
+                if panelOpen {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Appearance").font(.headline)
+                            Spacer()
+                            Button { withAnimation(Motion.morph) { panelOpen = false } } label: {
+                                Image(systemName: "xmark").font(.subheadline.weight(.semibold)).frame(width: 32, height: 32).contentShape(.circle)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Close appearance")
+                        }
+                        ThemeSwatches(themeRaw: $themeRaw)
+                        TextSizeControl(textSize: $textSize)
+                    }
+                    .padding(18)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 30))
+                    .glassEffectID("aa", in: ns)
+                }
+                HStack(spacing: 10) {
+                    if !compact {
+                        Button(action: showContents) {
+                            Image(systemName: "list.bullet").font(.body.weight(.medium)).frame(width: 50, height: 50).contentShape(.circle)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .glassEffectID("contents", in: ns)
+                        .accessibilityLabel("Contents")
+                    }
+                    ProgressPill(section: section, progress: progress, compact: compact)
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .glassEffectID("progress", in: ns)
+                        .onTapGesture(perform: showContents)
+                    if !compact && !panelOpen {
+                        Button { withAnimation(Motion.morph) { panelOpen = true } } label: {
+                            Text("Aa").font(Typeface.serif(19)).frame(width: 50, height: 50).contentShape(.circle)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .glassEffectID("aa", in: ns)
+                        .accessibilityLabel("Appearance")
+                    }
+                }
+                .frame(maxWidth: compact ? 250 : .infinity)
+            }
+            .foregroundStyle(r.theme.ink)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+    }
+}
+
+struct ProgressPill: View {
+    let section: String
+    let progress: Double
+    let compact: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(section).font(.footnote.weight(.semibold)).lineLimit(1)
+                Spacer(minLength: 6)
+                Text("\(Int((progress * 100).rounded()))%")
+                    .font(.caption.weight(.medium))
+                    .monospacedDigit()
+                    .opacity(0.6)
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.12))
+                    Capsule().fill(Color.accentColor).frame(width: max(3, g.size.width * progress))
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 18)
+        .frame(height: compact ? 42 : 50)
+        .frame(maxWidth: .infinity)
+        .contentShape(.capsule)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(section), \(Int(progress * 100)) percent read")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+struct ContentsSheet: View {
+    let outline: Outline
+    let currentID: Int?
+    let go: (Int) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List(outline.entries) { e in
+                Button { go(e.id) } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(e.number).monospacedDigit().foregroundStyle(.secondary).frame(width: 30, alignment: .leading)
+                        Text(e.title).font(Typeface.serif(18)).foregroundStyle(.primary)
+                        Spacer()
+                        if e.id == currentID {
+                            Image(systemName: "bookmark.fill").font(.caption).foregroundStyle(.tint)
+                        }
+                    }
+                    .padding(.leading, e.level > 2 ? 20 : 0)
+                }
+            }
+            .navigationTitle(outline.lessonTitle)
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 
@@ -98,6 +295,7 @@ struct LessonBody: View {
                 ReferencesView(references: lesson.references)
             }
         }
+        .scrollTargetLayout()
         .foregroundStyle(r.theme.ink)
     }
 }
@@ -118,60 +316,4 @@ struct SectionNumbering {
     }
 
     func label(at i: Int) -> String? { labels[i] }
-}
-
-struct ReadingSettingsSheet: View {
-    @Binding var themeRaw: String
-    @Binding var textSize: Double
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Theme") {
-                    HStack(spacing: 12) {
-                        ForEach(ReadingTheme.allCases) { t in
-                            Button { themeRaw = t.rawValue } label: {
-                                VStack(spacing: 6) {
-                                    Text("Aa")
-                                        .font(Typeface.serif(22))
-                                        .foregroundStyle(t.ink)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 56)
-                                        .background(t.background, in: .rect(cornerRadius: 14))
-                                        .overlay {
-                                            RoundedRectangle(cornerRadius: 14)
-                                                .strokeBorder(themeRaw == t.rawValue ? Color.accentColor : Color.secondary.opacity(0.25),
-                                                              lineWidth: themeRaw == t.rawValue ? 2.5 : 0.5)
-                                        }
-                                    Text(t.label).font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("\(t.label) theme")
-                            .accessibilityAddTraits(themeRaw == t.rawValue ? .isSelected : [])
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                Section("Text size") {
-                    HStack {
-                        Text("A").font(Typeface.serif(14))
-                        Slider(value: $textSize, in: 15...24, step: 0.5)
-                        Text("A").font(Typeface.serif(24))
-                    }
-                }
-                Section {
-                    Text("More fonts, spacing, margins and paged layout arrive with the full reader.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("Appearance")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
-        }
-    }
 }

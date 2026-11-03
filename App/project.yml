@@ -2,7 +2,7 @@ name: QBD
 options:
   bundleIdPrefix: com.theventus
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "26.1"
 packages:
   QBDKit:
     path: ../Packages/QBDKit
