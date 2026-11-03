@@ -222,7 +222,14 @@ def fixture_package():
     shutil.copy(os.path.join(ROOT, "field-guide-epub2.epub"), os.path.join(d, "book.epub"))
     json.dump({"schema": "qbd.book/1", "id": "field-guide", "subtitle": "Clocks, signals and the edge of the sky",
                "theme": {"accent": "#F2CDA7", "accentDeep": "#8A5A2B", "onAccent": "#3A2410", "landing": "cover"},
-               "contents": {"style": "outline", "titleCase": True}, "startAt": "index_split_001.html"},
+               "contents": {"style": "outline", "titleCase": True}, "startAt": "index_split_001.html",
+               "about": "A short guide to the one idea that underlies every map, clock and satellite: light takes time to arrive. In three chapters it follows a signal from a distant quasar to the phone in your pocket, and shows why a few billionths of a second matter.\n\nWritten for readers with no physics beyond school, it keeps the maths to a single equation and the wonder intact.",
+               "praise": [{"quote": "The clearest short account of why timing is everything.", "source": "Quasar Fixtures"},
+                          {"quote": "A small book that makes the sky feel close.", "source": "Sample Review"}],
+               "awards": "Sample book for Quasar",
+               "scenes": [{"web": 0.1, "ship": 0.05, "pod": False, "spider": False, "signal": 0.4},
+                          {"web": 0.6, "ship": 0.5, "pod": True, "spider": True, "signal": 1},
+                          {"web": 1, "ship": 1, "pod": True, "spider": True, "signal": 1, "orbit": True}]},
               open(os.path.join(d, "book.json"), "w"), indent=2)
 
 

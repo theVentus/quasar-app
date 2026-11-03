@@ -6,12 +6,14 @@ import BookKit
 
 /// A book's landing backdrop, chosen in its book.json (`theme.landing`).
 struct BookBackdrop: View {
+    @Environment(Bookshelf.self) private var shelf
     let book: Book
     var style: String? = nil
 
     var body: some View {
+        let scene = SceneState.current(for: book, location: LaunchState.sceneOverride ?? shelf.location(book.id))
         switch style ?? LaunchState.landingOverride ?? book.manifest.theme?.landing ?? "cover" {
-        case "web": WebBackdrop()
+        case "web": WebBackdrop(scene: scene)
         case "sky": SkyView()
         default: CoverBackdrop(book: book)
         }
@@ -41,20 +43,58 @@ struct CoverBackdrop: View {
 }
 
 /// An orb web strung across a dark sky above a green world. Threads sway; dew catches the light.
+/// The state of a progressive backdrop: dials from the book's `scenes`, interpolated to the reader's position.
+struct SceneState: Equatable {
+    var web = 1.0, ship = 0.5, signal = 1.0
+    var pod = true, spider = true, orbit = false
+
+    static func lerp(_ a: Double, _ b: Double, _ t: Double) -> Double { a + (b - a) * t }
+
+    init() {}
+
+    init(_ a: BookManifest.Scene, _ b: BookManifest.Scene, _ t: Double) {
+        web = Self.lerp(a.web ?? 1, b.web ?? a.web ?? 1, t)
+        ship = Self.lerp(a.ship ?? 0.5, b.ship ?? a.ship ?? 0.5, t)
+        signal = Self.lerp(a.signal ?? 1, b.signal ?? a.signal ?? 1, t)
+        pod = a.pod ?? true
+        spider = a.spider ?? true
+        orbit = a.orbit ?? false
+    }
+
+    /// Where the reader is: the part containing the current position and how far through it.
+    static func current(for book: Book, location: BookLocation?) -> SceneState {
+        guard let scenes = book.manifest.scenes, !scenes.isEmpty else { return SceneState() }
+        let parts = book.outline.parts
+        guard let loc = location, let entry = book.package.tocEntry(spine: loc.spine),
+              let part = book.outline.part(containingTOC: entry.id),
+              let pi = parts.firstIndex(where: { $0.id == part.id }) else {
+            let (a, b, t) = book.manifest.scene(part: 0, fraction: 0)!
+            return SceneState(a, b, t)
+        }
+        let f = book.progress(inPart: pi, bookProgress: book.package.progress(spine: loc.spine, fraction: loc.fraction))
+        let (a, b, t) = book.manifest.scene(part: pi, fraction: f)!
+        return SceneState(a, b, t)
+    }
+}
+
+/// An orb web strung across a dark sky above a green world. The scene advances with the reader:
+/// threads fill in, a sentinel pod blinks into orbit, a satellite's signal pulses down, a ship crosses the sky.
 struct WebBackdrop: View {
+    var scene = SceneState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { timeline in
             let t = reduceMotion ? 12 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 100_000)
-            Canvas { ctx, size in WebPainter.draw(&ctx, size: size, t: t) }
+            Canvas { ctx, size in WebPainter.draw(&ctx, size: size, t: t, scene: scene) }
         }
+        .animation(.smooth(duration: 1.2), value: scene)
         .accessibilityHidden(true)
     }
 }
 
 enum WebPainter {
-    static func draw(_ ctx: inout GraphicsContext, size: CGSize, t: Double) {
+    static func draw(_ ctx: inout GraphicsContext, size: CGSize, t: Double, scene: SceneState) {
         let w = size.width, h = size.height
         ctx.fill(Path(CGRect(origin: .zero, size: size)),
                  with: .linearGradient(Gradient(colors: [Color(hex: 0x05080A), Color(hex: 0x0B1712), Color(hex: 0x0E2016)]),
@@ -64,7 +104,7 @@ enum WebPainter {
             ctx.fill(Path(ellipseIn: CGRect(x: s.x * w - s.r, y: s.y * h * 0.7 - s.r, width: 2 * s.r, height: 2 * s.r)), with: .color(.white.opacity(a)))
         }
 
-        // A green world rising from the bottom, with atmosphere and a thin orbital ring.
+        // The green world
         let R = w * 1.25
         let pc = CGPoint(x: w * 0.62, y: h + R * 0.62)
         ctx.fill(Path(ellipseIn: CGRect(x: pc.x - R - 26, y: pc.y - R - 26, width: 2 * R + 52, height: 2 * R + 52)),
@@ -73,13 +113,60 @@ enum WebPainter {
         ctx.fill(Path(ellipseIn: CGRect(x: pc.x - R, y: pc.y - R, width: 2 * R, height: 2 * R)),
                  with: .linearGradient(Gradient(colors: [Color(hex: 0x3F7A52), Color(hex: 0x1C3A27), Color(hex: 0x0A1A10)]),
                                        startPoint: CGPoint(x: pc.x - R * 0.3, y: pc.y - R), endPoint: CGPoint(x: pc.x + R * 0.2, y: pc.y - R * 0.6)))
-        var ring = Path()
-        ring.addEllipse(in: CGRect(x: pc.x - R * 1.18, y: pc.y - R * 1.02, width: R * 2.36, height: R * 0.5))
-        ctx.stroke(ring, with: .color(Color(hex: 0xCFE8D5).opacity(0.18)), lineWidth: 0.8)
-        let station = CGPoint(x: pc.x - R * 0.72, y: pc.y - R * 0.86)
-        ctx.fill(Path(ellipseIn: CGRect(x: station.x - 2.5, y: station.y - 2.5, width: 5, height: 5)), with: .color(Color(hex: 0xF4F1E6)))
 
-        // The web: anchored off the top-left, radial threads and a spiral, swaying gently.
+        // Orbit ring with the satellite; the sentinel pod joins it later in the story.
+        let ringRect = CGRect(x: pc.x - R * 1.18, y: pc.y - R * 1.02, width: R * 2.36, height: R * 0.5)
+        var ring = Path(); ring.addEllipse(in: ringRect)
+        ctx.stroke(ring, with: .color(Color(hex: 0xCFE8D5).opacity(0.18)), lineWidth: 0.8)
+        func onRing(_ angle: Double) -> CGPoint {
+            CGPoint(x: ringRect.midX + cos(angle) * ringRect.width / 2, y: ringRect.midY + sin(angle) * ringRect.height / 2)
+        }
+        let sat = onRing(-2.35 + 0.02 * sin(t * 0.1))
+        ctx.fill(Path(ellipseIn: CGRect(x: sat.x - 2.5, y: sat.y - 2.5, width: 5, height: 5)), with: .color(Color(hex: 0xF4F1E6)))
+        // Its signal: a pulse travelling down to the surface
+        if scene.signal > 0 {
+            let phase = (t * 0.45).truncatingRemainder(dividingBy: 1)
+            let target = CGPoint(x: pc.x - R * 0.55, y: pc.y - R * 0.74)
+            var beam = Path(); beam.move(to: sat); beam.addLine(to: target)
+            ctx.stroke(beam, with: .color(Color(hex: 0xBCDDBE).opacity(0.08 * scene.signal)), lineWidth: 0.6)
+            let pt = CGPoint(x: sat.x + (target.x - sat.x) * phase, y: sat.y + (target.y - sat.y) * phase)
+            let a = scene.signal * (1 - phase) * 0.9
+            ctx.fill(Path(ellipseIn: CGRect(x: pt.x - 2, y: pt.y - 2, width: 4, height: 4)), with: .color(Color(hex: 0xDFF5E0).opacity(a)))
+        }
+        if scene.pod {
+            let pod = onRing(-0.6 + 0.015 * sin(t * 0.13))
+            let blink = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(t * 2.2), 8)
+            ctx.fill(Path(ellipseIn: CGRect(x: pod.x - 2, y: pod.y - 2, width: 4, height: 4)), with: .color(Color(hex: 0xF7D9A8).opacity(blink)))
+            ctx.stroke(Path(ellipseIn: CGRect(x: pod.x - 5, y: pod.y - 5, width: 10, height: 10)), with: .color(Color(hex: 0xF7D9A8).opacity(0.25 * blink)), lineWidth: 0.6)
+        }
+
+        // The ark ship: a long hull with a drive glow, crossing from the far horizon to overhead as the story advances.
+        if scene.ship > 0 {
+            let s = scene.ship
+            let sx = w * (0.95 - 0.8 * s), sy = h * (0.42 - 0.32 * s) + 2 * sin(t * 0.3)
+            let len = 6 + 62 * s * s, thick = 1 + 3.2 * s
+            let angle = -0.28
+            var hull = Path()
+            hull.move(to: CGPoint(x: sx - len / 2, y: sy)); hull.addLine(to: CGPoint(x: sx + len / 2, y: sy))
+            var ctx2 = ctx
+            ctx2.translateBy(x: sx, y: sy); ctx2.rotate(by: .radians(angle)); ctx2.translateBy(x: -sx, y: -sy)
+            ctx2.stroke(hull, with: .color(Color(hex: 0x9EA8A3).opacity(0.75)), style: StrokeStyle(lineWidth: thick, lineCap: .round))
+            if s > 0.25 {
+                // Rotating habitat rings and the drive
+                let n = s > 0.6 ? 3 : 2
+                for k in 0..<n {
+                    let x = sx - len / 2 + len * (0.35 + 0.2 * Double(k))
+                    ctx2.stroke(Path(ellipseIn: CGRect(x: x - thick * 0.9, y: sy - thick * 1.6, width: thick * 1.8, height: thick * 3.2)),
+                                with: .color(Color(hex: 0xC9D1CC).opacity(0.5)), lineWidth: 0.7)
+                }
+                let drive = CGPoint(x: sx + len / 2 + 2, y: sy)
+                let g = 4 + 14 * s * (0.8 + 0.2 * sin(t * 6))
+                ctx2.fill(Path(ellipseIn: CGRect(x: drive.x - g, y: drive.y - g * 0.5, width: g * 2, height: g)),
+                          with: .radialGradient(Gradient(colors: [Color(hex: 0xBFE3FF).opacity(0.7), .clear]), center: drive, startRadius: 0, endRadius: g))
+            }
+        }
+
+        // The web, with as many rings as the story has earned
         let hub = CGPoint(x: w * 0.3 + 4 * sin(t * 0.5), y: h * 0.26 + 3 * cos(t * 0.37))
         let spokes = 17
         let reach = max(w, h) * 0.55
@@ -90,14 +177,16 @@ enum WebPainter {
             return CGPoint(x: hub.x + cos(a + sway) * r, y: hub.y + sin(a + sway) * r * 0.92)
         }
         let silk = Color(hex: 0xE8F2EA)
+        let spokeReach = reach * min(1, 0.15 + scene.web)
         for a in angles {
-            var p = Path(); p.move(to: hub); p.addLine(to: point(a, reach))
+            var p = Path(); p.move(to: hub); p.addLine(to: point(a, spokeReach))
             ctx.stroke(p, with: .color(silk.opacity(0.16)), lineWidth: 0.6)
         }
         var spiral = Path()
         var first = true
         var r = 14.0
-        while r < reach * 0.82 {
+        let limit = reach * 0.82 * scene.web
+        while r < limit {
             for a in angles {
                 let pt = point(a, r)
                 if first { spiral.move(to: pt); first = false } else { spiral.addLine(to: pt) }
@@ -105,14 +194,44 @@ enum WebPainter {
             }
         }
         ctx.stroke(spiral, with: .color(silk.opacity(0.13)), lineWidth: 0.5)
+        if scene.orbit {
+            // A single thread leaves the web for orbit
+            var up = Path(); up.move(to: hub); up.addLine(to: sat)
+            ctx.stroke(up, with: .color(silk.opacity(0.22)), style: StrokeStyle(lineWidth: 0.7, dash: [1, 0]))
+        }
 
         // Dew on the threads
         for (k, s) in SkyPainter.stars.prefix(48).enumerated() {
             let a = angles[k % spokes]
-            let pt = point(a, 30 + s.x * reach * 0.75)
+            let rr0 = 30 + s.x * reach * 0.75
+            guard rr0 < limit + 20 else { continue }
+            let pt = point(a, rr0)
             let glint = 0.25 + 0.6 * pow(0.5 + 0.5 * sin(t * 1.3 + s.phase * 3), 6)
             let rr = 0.8 + s.r * 0.9
             ctx.fill(Path(ellipseIn: CGRect(x: pt.x - rr, y: pt.y - rr, width: 2 * rr, height: 2 * rr)), with: .color(silk.opacity(glint)))
+        }
+
+        // She waits at the hub: a small silhouette, legs along the spokes, breathing slowly.
+        if scene.spider {
+            let breath = 1 + 0.03 * sin(t * 1.1)
+            let body = Color(hex: 0x070A08)
+            let rim = silk.opacity(0.35)
+            let ab = CGRect(x: hub.x - 7 * breath, y: hub.y - 2, width: 14 * breath, height: 20 * breath)
+            ctx.fill(Path(ellipseIn: ab), with: .color(body))
+            ctx.stroke(Path(ellipseIn: ab), with: .color(rim), lineWidth: 0.6)
+            let head = CGRect(x: hub.x - 4.5, y: hub.y - 10, width: 9, height: 9)
+            ctx.fill(Path(ellipseIn: head), with: .color(body))
+            ctx.stroke(Path(ellipseIn: head), with: .color(rim), lineWidth: 0.6)
+            for k in 0..<8 {
+                let side: Double = k < 4 ? -1 : 1
+                let a = side * (0.35 + 0.55 * Double(k % 4)) - .pi / 2 + (side > 0 ? 0 : 0)
+                let ang = side > 0 ? a : (.pi - a)
+                let knee = CGPoint(x: hub.x + cos(ang) * 14, y: hub.y - 4 + sin(ang) * 10 + Double(k % 4) * 3)
+                let tip = CGPoint(x: hub.x + cos(ang) * 26, y: hub.y - 2 + sin(ang) * 18 + Double(k % 4) * 5)
+                var leg = Path(); leg.move(to: CGPoint(x: hub.x + side * 4, y: hub.y + Double(k % 4) * 3)); leg.addLine(to: knee); leg.addLine(to: tip)
+                ctx.stroke(leg, with: .color(body), style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                ctx.stroke(leg, with: .color(rim.opacity(0.5)), style: StrokeStyle(lineWidth: 0.4, lineCap: .round, lineJoin: .round))
+            }
         }
     }
 }
@@ -158,12 +277,21 @@ struct CoverImage: View {
 // MARK: Landing
 
 /// Home for a book: the same shape as a course landing, in the book's own style.
+/// Home for a book: the back of a paperback. Title, a press line, the first lines of the description, then the actions.
+/// Everything settles in a beat apart on arrival; the backdrop advances as you read.
 struct BookLanding: View {
     @Environment(Bookshelf.self) private var shelf
     @Environment(\.accent) private var accent
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let book: Book
     @Binding var showSettings: Bool
     let open: (Route) -> Void
+    @State private var stage = 0
+    @State private var expanded = false
+    @State private var quoteIndex = 0
+
+    private var praise: [BookManifest.Praise] { book.manifest.praise ?? [] }
+    private var isCoverStyle: Bool { (book.manifest.theme?.landing ?? "cover") == "cover" }
 
     var body: some View {
         ScrollView {
@@ -180,38 +308,133 @@ struct BookLanding: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     Spacer(minLength: 0)
-                    if book.manifest.theme?.landing == "cover" || book.manifest.theme?.landing == nil {
-                        CoverImage(book: book, width: 120).padding(.bottom, 10)
+                    if isCoverStyle {
+                        CoverImage(book: book, width: 110).padding(.bottom, 8).reveal(stage >= 1)
                     }
                     Text(shelf.location(book.id) == nil ? "UP NEXT" : "NOW READING")
                         .font(.caption.weight(.semibold))
                         .tracking(2)
                         .foregroundStyle(.white.opacity(0.6))
+                        .reveal(stage >= 1)
                     Text(book.title)
                         .font(Typeface.serif(46))
                         .foregroundStyle(.white)
                         .lineLimit(3)
                         .minimumScaleFactor(0.55)
-                    Text(book.manifest.subtitle ?? book.authors.joined(separator: ", "))
+                        .reveal(stage >= 1)
+                    Text(book.authors.joined(separator: ", "))
                         .font(Typeface.serif(20, italic: true))
                         .foregroundStyle(.white.opacity(0.75))
-                    if book.manifest.subtitle != nil, !book.authors.isEmpty {
-                        Text(book.authors.joined(separator: ", ")).font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                        .reveal(stage >= 1)
+                    if let awards = book.manifest.awards {
+                        Text(awards.uppercased())
+                            .font(.caption2.weight(.semibold))
+                            .tracking(1.4)
+                            .foregroundStyle(accent.pastel)
+                            .reveal(stage >= 2)
                     }
-                    BookStats(book: book).padding(.top, 4)
-                    BookActions(book: book, open: open).padding(.top, 8)
+                    if !praise.isEmpty {
+                        PressLine(praise: praise, index: quoteIndex)
+                            .padding(.top, 4)
+                            .reveal(stage >= 2)
+                    }
+                    if let about = book.manifest.about {
+                        Blurb(text: about, expanded: $expanded)
+                            .padding(.top, 2)
+                            .reveal(stage >= 3)
+                    }
+                    BookStats(book: book).padding(.top, 6).reveal(stage >= 4)
+                    BookActions(book: book, open: open).padding(.top, 6).reveal(stage >= 4)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 28)
-                .containerRelativeFrame(.vertical) { h, _ in h * 0.82 }
+                .containerRelativeFrame(.vertical) { h, _ in max(h * 0.84, 560) }
             }
         }
         .scrollIndicators(.hidden)
-        .background { BookBackdrop(book: book).ignoresSafeArea() }
+        .background {
+            BookBackdrop(book: book)
+                .overlay(Color.black.opacity(expanded ? 0.35 : 0))
+                .animation(.smooth, value: expanded)
+                .ignoresSafeArea()
+        }
         .environment(\.colorScheme, .dark)
+        .task {
+            if reduceMotion || LaunchState.isScreenshotting { stage = 4; return }
+            for i in 1...4 {
+                try? await Task.sleep(for: .milliseconds(i == 1 ? 60 : 110))
+                withAnimation(.smooth(duration: 0.5)) { stage = i }
+            }
+        }
+        .task(id: praise.count) {
+            guard praise.count > 1 else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(9))
+                withAnimation(.smooth(duration: 0.8)) { quoteIndex = (quoteIndex + 1) % praise.count }
+            }
+        }
+    }
+}
+
+/// A single press quote, the way one sits on a paperback, crossfading to the next every few seconds.
+struct PressLine: View {
+    let praise: [BookManifest.Praise]
+    let index: Int
+
+    var body: some View {
+        let p = praise[min(index, praise.count - 1)]
+        VStack(alignment: .leading, spacing: 4) {
+            Text("‘\(p.quote)’")
+                .font(Typeface.serif(17, italic: true))
+                .foregroundStyle(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+            Text(p.source.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.55))
+        }
+        .id(index)
+        .transition(.opacity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The description: two lines trailing into a fade, unfolding in place on tap.
+struct Blurb: View {
+    let text: String
+    @Binding var expanded: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(expanded ? nil : 2)
+                .fixedSize(horizontal: false, vertical: true)
+                .mask {
+                    if expanded { Rectangle() } else {
+                        LinearGradient(stops: [.init(color: .black, location: 0.55), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
+                    }
+                }
+            Button(expanded ? "Less" : "More") { withAnimation(.smooth(duration: 0.4)) { expanded.toggle() } }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .buttonStyle(.plain)
+        }
+        .contentShape(.rect)
+        .onTapGesture { withAnimation(.smooth(duration: 0.4)) { expanded.toggle() } }
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(expanded ? "Collapses the description" : "Expands the description")
+    }
+}
+
+extension View {
+    /// Staged entrance: fades in and rises a few points.
+    func reveal(_ on: Bool) -> some View {
+        opacity(on ? 1 : 0).offset(y: on ? 0 : 10)
     }
 }
 
@@ -328,6 +551,11 @@ struct BookContentsView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     BookHero(book: book)
+                    if parts.count > 1 {
+                        PartsMap(book: book, parts: parts) { id in withAnimation(.smooth) { proxy.scrollTo(id, anchor: .top) } }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 18)
+                    }
                     LazyVStack(alignment: .leading, spacing: 36) {
                         ForEach(parts) { part in
                             PartSection(book: book, part: part, currentTOC: currentTOC).id(part.id)
@@ -352,6 +580,44 @@ struct BookContentsView: View {
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) } }
+    }
+}
+
+/// The shape of the book at a glance: one thin bar per part, filled to where you've read.
+struct PartsMap: View {
+    @Environment(Bookshelf.self) private var shelf
+    @Environment(\.accent) private var accent
+    let book: Book
+    let parts: [BookOutline.Part]
+    let select: (Int) -> Void
+
+    var body: some View {
+        let p = shelf.progress(book)
+        VStack(alignment: .leading, spacing: 6) {
+            GeometryReader { g in
+                let gaps = CGFloat(parts.count - 1) * 3
+                HStack(spacing: 3) {
+                    ForEach(Array(parts.enumerated()), id: \.element.id) { i, part in
+                        let r = book.partRange(i)
+                        let f = book.progress(inPart: i, bookProgress: p)
+                        let w = max(6, (g.size.width - gaps) * CGFloat(r.end - r.start))
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.secondary.opacity(0.18))
+                            Capsule().fill(accent.pastel).frame(width: max(f > 0 ? 3 : 0, w * f))
+                        }
+                        .frame(width: w, height: 5)
+                        .contentShape(.rect)
+                        .onTapGesture { select(part.id) }
+                        .accessibilityLabel("Part \(part.number ?? "\(i + 1)"), \(Int(f * 100)) percent read")
+                    }
+                }
+            }
+            .frame(height: 5)
+            Text(p > 0 ? "\(Int((p * 100).rounded()))% read · \(parts.count) parts" : "\(parts.count) parts")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
     }
 }
 

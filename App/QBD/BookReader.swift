@@ -49,6 +49,8 @@ struct BookStyle: Equatable {
     var justify: Bool
     var paged: Bool
     var accent: String
+    var turn: String = "slide"
+    var finish: Bool = true
 }
 
 enum BookTarget: Equatable {
@@ -71,6 +73,8 @@ struct BookReaderView: View {
     @AppStorage("bookMargin") private var margin = 1
     @AppStorage("bookJustify") private var justify = true
     @AppStorage("bookPaged") private var paged = true
+    @AppStorage("bookTurn") private var turnRaw = "slide"
+    @AppStorage("bookFinish") private var finish = true
     @AppStorage("lastItem") private var lastItem = ""
     @Environment(\.colorScheme) private var systemScheme
 
@@ -84,8 +88,9 @@ struct BookReaderView: View {
     @State private var panelOpen = false
     @State private var showContents = false
     @State private var started = false
+    @State private var reentry: String?
 
-    private var theme: ReadingTheme { ReadingTheme(rawValue: themeRaw) ?? .sepia }
+    private var theme: ReadingTheme { ReadingTheme.resolve(themeRaw) }
     private var book: Book? { shelf.book(bookID) }
 
     var body: some View {
@@ -107,7 +112,7 @@ struct BookReaderView: View {
     @ViewBuilder
     private func reader(_ book: Book) -> some View {
         let style = BookStyle(theme: theme, size: textSize, font: BookFont(rawValue: fontRaw) ?? .cmu, spacing: spacing,
-                              margin: margin, justify: justify, paged: paged, accent: accentHex(book))
+                              margin: margin, justify: justify, paged: paged, accent: accentHex(book), turn: turnRaw, finish: finish)
         let entry = book.package.tocEntry(spine: spine)
         let chapter = entry.flatMap { book.outline.chapter(forTOC: $0.id) }
         let sectionTitle = chapter.map { [$0.number, $0.title].compactMap { $0 }.joined(separator: "  ") } ?? book.title
@@ -126,6 +131,17 @@ struct BookReaderView: View {
                         onEdge: { dir in step(book, dir) })
                 .ignoresSafeArea()
 
+            if let reentry {
+                Text(reentry)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(theme.ink)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .glassEffect(.regular, in: .capsule)
+                    .padding(.bottom, chrome ? 0 : 24)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .allowsHitTesting(false)
+                    .accessibilityLabel(reentry)
+            }
             if !chrome {
                 Text(pagesLeftLabel)
                     .font(.caption2.weight(.medium))
@@ -138,7 +154,7 @@ struct BookReaderView: View {
         }
         .safeAreaBar(edge: .bottom) {
             if chrome {
-                BookBar(style: style, fontRaw: $fontRaw, spacing: $spacing, margin: $margin, justify: $justify, paged: $paged,
+                BookBar(style: style, fontRaw: $fontRaw, spacing: $spacing, margin: $margin, justify: $justify, paged: $paged, turnRaw: $turnRaw, finish: $finish,
                         themeRaw: $themeRaw, textSize: $textSize, panelOpen: $panelOpen,
                         section: sectionTitle, progress: overall) { showContents = true }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -177,6 +193,15 @@ struct BookReaderView: View {
         if let t = startTOC ?? LaunchState.openTOC { jump(book, toc: t); return }
         if let l = shelf.location(book.id) {
             spine = l.spine; target = .fraction(l.fraction)
+            // Away for a while: name the chapter you're picking up, briefly.
+            if Date().timeIntervalSince(l.updated) > 4 * 3600 || LaunchState.showReentry,
+               let e = book.package.tocEntry(spine: l.spine), let ch = book.outline.chapter(forTOC: e.id) {
+                let part = book.outline.part(containingTOC: e.id)
+                let label = [ch.number, ch.title].compactMap { $0 }.joined(separator: "  ")
+                let text = "Picking up · " + (part.map { !$0.title.isEmpty && $0.entry?.id != ch.id ? "\($0.title) · " : "" } ?? "") + label
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation(.smooth) { reentry = text } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.2) { withAnimation(.smooth) { reentry = nil } }
+            }
         } else {
             spine = book.startSpineIndex; target = .fraction(0)
         }
@@ -298,8 +323,9 @@ struct BookWebView: UIViewRepresentable {
             let insets = Self.deviceInsets()
             let t = style.theme
             let margins = [14.0, 24.0, 38.0][min(2, max(0, style.margin))]
+            let accentDeep = t.isDark ? style.accent : (parent?.book.manifest.theme?.accentDeep ?? style.accent)
             let settings: [String: Any] = [
-                "bg": t.background.hex, "ink": t.ink.hex, "ink2": t.ink2.hex, "accent": style.accent,
+                "bg": t.background.hex, "ink": t.ink.hex, "ink2": t.ink2.hex, "accent": style.accent, "accentDeep": accentDeep, "finish": style.finish,
                 "font": style.font.css ?? "", "size": style.size, "lh": style.spacing, "margin": margins,
                 "top": insets.top + 40, "bottom": insets.bottom + 34, "justify": style.justify, "paged": style.paged,
                 "fonts": Bookshelf.fontsURL.absoluteString, "lang": parent?.book.package.metadata.language ?? "en",
@@ -407,13 +433,29 @@ struct BookWebView: UIViewRepresentable {
         }
 
         private func turn(_ dir: Int) {
-            guard let sv = web?.scrollView, let parent else { return }
+            guard let web, let parent else { return }
+            let sv = web.scrollView
             let w = max(1, sv.bounds.width)
             let n = max(1, Int((sv.contentSize.width / w).rounded()))
             let p = Int((sv.contentOffset.x / w).rounded()) + dir
             if p < 0 { return parent.onEdge(-1) }
             if p >= n { return parent.onEdge(1) }
-            sv.setContentOffset(CGPoint(x: CGFloat(p) * w, y: 0), animated: true)
+            let target = CGPoint(x: CGFloat(p) * w, y: 0)
+            switch style?.turn ?? "slide" {
+            case "curl", "fade":
+                // Snapshot the current page over the web view, move underneath, then animate the snapshot away.
+                guard let snap = web.snapshotView(afterScreenUpdates: false) else { return sv.setContentOffset(target, animated: true) }
+                snap.frame = web.bounds
+                web.addSubview(snap)
+                sv.setContentOffset(target, animated: false)
+                let curl = style?.turn == "curl"
+                let options: UIView.AnimationOptions = curl ? (dir > 0 ? .transitionCurlUp : .transitionCurlDown) : .transitionCrossDissolve
+                UIView.transition(with: web, duration: curl ? 0.45 : 0.25, options: [options, .allowAnimatedContent]) {
+                    snap.removeFromSuperview()
+                } completion: { [weak self] _ in self?.report() }
+            default:
+                sv.setContentOffset(target, animated: true)
+            }
         }
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
@@ -482,6 +524,10 @@ enum BookScript {
           img, svg, video { max-width: 100% !important; height: auto !important; object-fit: contain; }
           h1, h2, h3, h4, h5, h6 { -webkit-hyphens: manual !important; hyphens: manual !important; }
           .qbd-ragged { text-align: left !important; }
+          html.qbd-finish body { hanging-punctuation: first last; }
+          html.qbd-finish h1 + p::first-letter, html.qbd-finish h2 + p::first-letter, html.qbd-finish h3 + p::first-letter, html.qbd-finish h4 + p::first-letter, html.qbd-finish .qbd-first::first-letter {
+            float: left; font-size: 3.1em; line-height: 0.82; padding: 0.06em 0.08em 0 0; color: ${s.accentDeep} !important; font-weight: normal; }
+          html.qbd-finish h1 + p::first-line, html.qbd-finish h2 + p::first-line, html.qbd-finish h3 + p::first-line, html.qbd-finish h4 + p::first-line, html.qbd-finish .qbd-first::first-line { font-variant-caps: small-caps; letter-spacing: 0.02em; }
           ::selection { background: ${s.accent}66; }
           html.qbd-paged { height: 100vh !important; overflow-y: hidden !important; }
           html.qbd-paged body { box-sizing: content-box !important; height: calc(100vh - ${s.top + s.bottom}px) !important;
@@ -526,6 +572,11 @@ enum BookScript {
           if (!el) { el = document.createElement('style'); el.id = 'qbd-style'; (document.head || document.documentElement).appendChild(el); }
           el.textContent = css(s);
           document.documentElement.classList.toggle('qbd-paged', !!s.paged);
+          document.documentElement.classList.toggle('qbd-finish', !!s.finish);
+          // Mark the first real paragraph after a heading (skips empty spacer paragraphs Calibre leaves behind).
+          document.querySelectorAll('.qbd-first').forEach(e => e.classList.remove('qbd-first'));
+          const h = document.querySelector('h1, h2, h3, h4');
+          if (h) { let e = h.nextElementSibling; while (e && (e.tagName !== 'P' || e.textContent.trim().length < 20)) e = e.nextElementSibling; if (e) e.classList.add('qbd-first'); }
           ragged(s.justify);
           if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout); else layout();
         },
@@ -567,6 +618,8 @@ struct BookBar: View {
     @Binding var margin: Int
     @Binding var justify: Bool
     @Binding var paged: Bool
+    @Binding var turnRaw: String
+    @Binding var finish: Bool
     @Binding var themeRaw: String
     @Binding var textSize: Double
     @Binding var panelOpen: Bool
@@ -668,6 +721,18 @@ struct BookBar: View {
                 Toggle(isOn: $justify) { Image(systemName: "text.justify") }
                     .toggleStyle(.button)
                     .accessibilityLabel("Justify text")
+            }
+            if paged {
+                HStack(spacing: 10) {
+                    Picker("Page turn", selection: $turnRaw) {
+                        Text("Slide").tag("slide"); Text("Curl").tag("curl"); Text("Fade").tag("fade")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Page turn")
+                    Toggle(isOn: $finish) { Text("Aa").font(Typeface.serif(15, bold: true)) }
+                        .toggleStyle(.button)
+                        .accessibilityLabel("Drop capitals and small caps")
+                }
             }
         }
     }

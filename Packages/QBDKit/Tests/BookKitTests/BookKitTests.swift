@@ -139,3 +139,18 @@ final class VaultTests: XCTestCase {
     }
 }
 #endif
+
+final class BookManifestTests: XCTestCase {
+    func testBackCoverFieldsDecode() throws {
+        let json = """
+        {"schema":"qbd.book/1","id":"x","about":"A book.","praise":[{"quote":"Good.","source":"Someone"}],
+         "scenes":[{"web":0.1,"ship":0,"pod":false},{"web":1,"ship":1,"orbit":true}]}
+        """
+        let m = try JSONDecoder().decode(BookManifest.self, from: Data(json.utf8))
+        XCTAssertEqual(m.praise?.first?.source, "Someone")
+        let (a, b, t) = try XCTUnwrap(m.scene(part: 0, fraction: 0.5))
+        XCTAssertEqual(a.web, 0.1); XCTAssertEqual(b.orbit, true); XCTAssertEqual(t, 0.5)
+        XCTAssertEqual(try XCTUnwrap(m.scene(part: 9, fraction: 0)).0.web, 1)   // clamps
+        XCTAssertNil(BookManifest(id: "y").scene(part: 0, fraction: 0))
+    }
+}

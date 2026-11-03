@@ -42,7 +42,7 @@ struct ReaderView: View {
     @State private var jump: Int?
     @Environment(\.colorScheme) private var systemScheme
 
-    private var theme: ReadingTheme { ReadingTheme(rawValue: themeRaw) ?? .sepia }
+    private var theme: ReadingTheme { ReadingTheme.resolve(themeRaw) }
     private var ref: CourseManifest.LessonRef? { course.manifest.lesson(lessonID) }
 
     var body: some View {

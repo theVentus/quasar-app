@@ -12,5 +12,41 @@
     "style": "outline",
     "titleCase": true
   },
-  "startAt": "index_split_001.html"
+  "startAt": "index_split_001.html",
+  "about": "A short guide to the one idea that underlies every map, clock and satellite: light takes time to arrive. In three chapters it follows a signal from a distant quasar to the phone in your pocket, and shows why a few billionths of a second matter.\n\nWritten for readers with no physics beyond school, it keeps the maths to a single equation and the wonder intact.",
+  "praise": [
+    {
+      "quote": "The clearest short account of why timing is everything.",
+      "source": "Quasar Fixtures"
+    },
+    {
+      "quote": "A small book that makes the sky feel close.",
+      "source": "Sample Review"
+    }
+  ],
+  "awards": "Sample book for Quasar",
+  "scenes": [
+    {
+      "web": 0.1,
+      "ship": 0.05,
+      "pod": false,
+      "spider": false,
+      "signal": 0.4
+    },
+    {
+      "web": 0.6,
+      "ship": 0.5,
+      "pod": true,
+      "spider": true,
+      "signal": 1
+    },
+    {
+      "web": 1,
+      "ship": 1,
+      "pod": true,
+      "spider": true,
+      "signal": 1,
+      "orbit": true
+    }
+  ]
 }

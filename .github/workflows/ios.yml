@@ -24,6 +24,22 @@ jobs:
           sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
           xcodebuild -version | tee -a ci.log
 
+      # Boot the simulator now so its cold start (3–8 min) overlaps the tests and builds.
+      - name: Pick simulator
+        run: |
+          echo "UDID=$(python3 App/scripts/pick-sim.py 2>>ci.log)" >> "$GITHUB_ENV"
+      - name: Boot simulator in the background
+        run: xcrun simctl boot "$UDID" 2>/dev/null || true
+
+      - name: Cache SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: |
+            Packages/QBDKit/.build
+            App/build/sim/SourcePackages
+            App/build/device/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved', 'Packages/QBDKit/Package.swift', 'App/project.yml') }}
+
       - name: CourseKit tests
         run: cd Packages/QBDKit && swift test 2>&1 | tee -a ../../ci.log
 
@@ -55,9 +71,6 @@ jobs:
 
       - name: Generate project
         run: brew install xcodegen && cd App && xcodegen generate 2>&1 | tee -a ../ci.log
-
-      - name: Pick simulator
-        run: echo "UDID=$(python3 App/scripts/pick-sim.py 2>>ci.log)" >> "$GITHUB_ENV"
 
       - name: Screenshots
         timeout-minutes: 20

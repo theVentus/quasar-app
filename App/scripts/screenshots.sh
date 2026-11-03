@@ -13,12 +13,14 @@ xcrun simctl bootstatus "$UDID" -b
 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 \
   --cellularMode active --cellularBars 4 --wifiBars 3
 xcrun simctl install "$UDID" build/sim/Build/Products/Debug-iphonesimulator/QBD.app
+# Warm the screenshot pipeline once; the first capture on a fresh simulator takes 10–15 s.
+xcrun simctl io "$UDID" screenshot /tmp/warm.png >/dev/null 2>&1 || true
 
 launch() {
   xcrun simctl terminate "$UDID" "$BID" 2>/dev/null || true
   xcrun simctl launch "$UDID" "$BID" "$@" >/dev/null
 }
-shot() { local name=$1; shift; launch "$@"; sleep 6; xcrun simctl io "$UDID" screenshot "$OUT/$name.png" >/dev/null; echo "shot $name"; }
+shot() { local name=$1; shift; launch "$@"; sleep 3.5; xcrun simctl io "$UDID" screenshot "$OUT/$name.png" >/dev/null; echo "shot $name"; }
 
 # burst <name> <first wait> <gap> <count> <launch args>: frames from one launch, to check motion and glass morphs
 burst() {
@@ -51,7 +53,9 @@ shot lab -tab lab
 B=(-fixtureBooks YES)
 shot books-library "${B[@]}" -tab library -libraryBooks YES
 shot book-home "${B[@]}" -tab home -last book:field-guide
-shot book-home-web "${B[@]}" -tab home -last book:field-guide -landing web
+shot book-home-web "${B[@]}" -tab home -last book:field-guide -landing web -scene 0
+shot book-home-web-late "${B[@]}" -tab home -last book:field-guide -landing web -scene 4
+shot book-reentry "${B[@]}" -openBook field-guide -theme sepia -reentry YES
 shot book-contents "${B[@]}" -bookContents field-guide -last book:field-guide
 shot book-page-sepia "${B[@]}" -openBook field-guide -theme sepia
 shot book-page-night "${B[@]}" -openBook field-guide -theme night -toc 1 -hideChrome YES

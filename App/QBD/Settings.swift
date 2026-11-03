@@ -6,6 +6,23 @@ struct ThemeSwatches: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            let autoOn = themeRaw == ReadingTheme.autoKey
+            Button { withAnimation(.snappy) { themeRaw = ReadingTheme.autoKey } } label: {
+                VStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.body.weight(.medium))
+                        .frame(width: 48, height: 48)
+                        .background(AngularGradient(colors: [ReadingTheme.paper.background, ReadingTheme.sepia.background, ReadingTheme.night.background, ReadingTheme.paper.background], center: .center), in: .circle)
+                        .foregroundStyle(ReadingTheme.sepia.ink)
+                        .overlay { Circle().strokeBorder(autoOn ? accent.tint : Color.secondary.opacity(0.35), lineWidth: autoOn ? 2.5 : 0.5) }
+                    Text("Auto").font(.caption2).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Auto theme, by time of day")
+            .accessibilityAddTraits(autoOn ? .isSelected : [])
             ForEach(ReadingTheme.allCases) { t in
                 let on = themeRaw == t.rawValue
                 Button { withAnimation(.snappy) { themeRaw = t.rawValue } } label: {

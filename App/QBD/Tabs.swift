@@ -75,7 +75,7 @@ struct LabModelPage: View {
     @Environment(\.colorScheme) private var systemScheme
 
     var body: some View {
-        let theme = ReadingTheme(rawValue: themeRaw) ?? .sepia
+        let theme = ReadingTheme.resolve(themeRaw)
         ScrollView {
             ExploreCard(model: model)
                 .padding(.horizontal, 16)

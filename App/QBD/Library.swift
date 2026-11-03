@@ -74,6 +74,14 @@ enum LaunchState {
     static var openTOC: Int? { defaults.object(forKey: "toc") == nil ? nil : defaults.integer(forKey: "toc") }
     static var libraryBooks: Bool { defaults.bool(forKey: "libraryBooks") }
     static var labModel: String? { defaults.string(forKey: "labModel") }
+    /// `-scene 3` fakes a reading position at the start of part 3 (0-based) for backdrop screenshots.
+    static var sceneOverride: BookLocation? {
+        guard defaults.object(forKey: "scene") != nil else { return nil }
+        return BookLocation(spine: defaults.integer(forKey: "scene"), fraction: 0)
+    }
+    /// Any CI launch argument present: skip entrance animations so stills are deterministic.
+    static var isScreenshotting: Bool { defaults.bool(forKey: "fixtureBooks") || tab != nil || openLesson != nil || openCourse }
+    static var showReentry: Bool { defaults.bool(forKey: "reentry") }
     static var hideChrome: Bool { defaults.bool(forKey: "hideChrome") }
     static var landingOverride: String? { defaults.string(forKey: "landing") }
     static var lastItem: String? { defaults.string(forKey: "last") }

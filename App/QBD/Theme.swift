@@ -6,6 +6,16 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
     case paper, sepia, dusk, night
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
+
+    /// "auto" follows the clock: paper by day, sepia around dusk, night after dark.
+    static let autoKey = "auto"
+    static func resolve(_ raw: String) -> ReadingTheme {
+        if raw == autoKey {
+            let h = Calendar.current.component(.hour, from: Date())
+            return h >= 7 && h < 18 ? .paper : h >= 18 && h < 21 ? .sepia : .night
+        }
+        return ReadingTheme(rawValue: raw) ?? .sepia
+    }
     var isDark: Bool { self == .dusk || self == .night }
     var scheme: ColorScheme { isDark ? .dark : .light }
 
