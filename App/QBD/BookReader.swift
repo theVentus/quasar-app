@@ -234,6 +234,8 @@ struct BookWebView: UIViewRepresentable {
         web.scrollView.minimumZoomScale = 1
         web.scrollView.maximumZoomScale = 1
         web.scrollView.bouncesZoom = false
+        // No fade under the bottom glass bar: the text should pass under it and refract.
+        web.scrollView.bottomEdgeEffect.isHidden = true
         web.allowsLinkPreview = false
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.cancelsTouchesInView = false

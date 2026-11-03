@@ -56,6 +56,8 @@ struct ReaderView: View {
                             .padding(.top, 8)
                             .padding(.bottom, 40)
                     }
+                    // No fade under the bottom glass: the page itself should pass under it and refract.
+                    .scrollEdgeEffectHidden(true, for: .bottom)
                     .onScrollGeometryChange(for: ScrollMetrics.self) { g in
                         ScrollMetrics(offset: g.contentOffset.y + g.contentInsets.top,
                                       range: g.contentSize.height - g.containerSize.height + g.contentInsets.top + g.contentInsets.bottom)
