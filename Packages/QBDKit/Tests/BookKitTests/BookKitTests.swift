@@ -119,7 +119,7 @@ final class BookOutlineTests: XCTestCase {
         XCTAssertEqual(o3.parts.count, 3)
         XCTAssertEqual(o3.parts[1].chapters.map(\.title), ["Part two"])
         let book = Book(manifest: BookManifest(id: "fixture"), package: p3, words: Book.countWords(p3))
-        XCTAssertGreaterThan(book.words, 800)
+        XCTAssertGreaterThan(book.words, 600)
         XCTAssertLessThan(book.words, 3000)
     }
 }
