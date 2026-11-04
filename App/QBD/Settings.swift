@@ -81,6 +81,7 @@ struct AppSettingsView: View {
                     ThemeSwatches(themeRaw: $themeRaw).padding(.vertical, 4)
                     TextSizeControl(textSize: $textSize)
                 }
+                ClaudeKeySection()
                 Section {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")
                 }

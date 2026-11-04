@@ -352,8 +352,13 @@ struct BookLanding: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 28)
                 .containerRelativeFrame(.vertical) { h, _ in max(h * 0.84, 560) }
+
+                HighlightsSection(book: book, open: open)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 40)
             }
         }
+        .defaultScrollAnchor(LaunchState.scrollTo != nil ? .bottom : .top)
         .scrollIndicators(.hidden)
         .background {
             BookBackdrop(book: book)

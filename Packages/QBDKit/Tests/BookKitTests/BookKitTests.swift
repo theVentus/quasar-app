@@ -154,3 +154,23 @@ final class BookManifestTests: XCTestCase {
         XCTAssertNil(BookManifest(id: "y").scene(part: 0, fraction: 0))
     }
 }
+
+final class NameIndexTests: XCTestCase {
+    func testFindsRecurringNamesAndFirstAppearance() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("names-\(UUID().uuidString)")
+        let p = try BookPackage.unpack(epub: BookKitTests.fixtures.appendingPathComponent("field-guide-epub2.epub"), to: dir)
+        let idx = NameIndex.build(p, minCount: 2)
+        // "Earth" is stopped; sentence-openers like "Light" (chapter 1 opens "Light is…") must not count as names.
+        XCTAssertFalse(idx.entries.contains { $0.name == "Earth" })
+        XCTAssertFalse(idx.entries.contains { $0.name == "Light" })
+        XCTAssertTrue(idx.known(upTo: 0).allSatisfy { $0.firstSpine <= 0 })
+        XCTAssertEqual(idx.known(upTo: 99).count, idx.entries.count)
+    }
+
+    func testHelpers() {
+        XCTAssertEqual(NameIndex.trim("“Portia’s"), "Portia")
+        XCTAssertTrue(NameIndex.isCap("Kern")); XCTAssertFalse(NameIndex.isCap("GPS")); XCTAssertFalse(NameIndex.isCap("kern"))
+        XCTAssertEqual(NameIndex.sentences("One. Two! Three").count, 3)
+        XCTAssertEqual(NameIndex.strip("<p>Hi <b>there</b>.</p><p>Two</p>").trimmingCharacters(in: .whitespacesAndNewlines), "Hi there.\nTwo")
+    }
+}

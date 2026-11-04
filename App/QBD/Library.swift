@@ -41,7 +41,7 @@ enum Route: Hashable {
     case course(String)
     case lesson(course: String, lesson: String)
     case bookContents(String)
-    case book(id: String, toc: Int?)
+    case book(id: String, toc: Int?, highlight: UUID? = nil)
 }
 
 /// What Home shows: the last course or book opened (`lastItem` = "course:<id>" or "book:<id>").
@@ -82,6 +82,8 @@ enum LaunchState {
     /// Any CI launch argument present: skip entrance animations so stills are deterministic.
     static var isScreenshotting: Bool { defaults.bool(forKey: "fixtureBooks") || tab != nil || openLesson != nil || openCourse }
     static var showReentry: Bool { defaults.bool(forKey: "reentry") }
+    static var seedHighlights: Bool { defaults.bool(forKey: "seedHighlights") }
+    static var showPeople: Bool { defaults.bool(forKey: "showPeople") }
     static var hideChrome: Bool { defaults.bool(forKey: "hideChrome") }
     static var landingOverride: String? { defaults.string(forKey: "landing") }
     static var lastItem: String? { defaults.string(forKey: "last") }

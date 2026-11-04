@@ -57,7 +57,17 @@ enum BookTarget: Equatable {
     case fraction(Double)
     case end
     case anchor(String)
+    /// The page containing this passage (a highlight being reopened).
+    case text(String)
 }
+
+struct Passage: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+/// What the reader did with a selected passage.
+enum SelectionAction: String { case highlight, ask }
 
 /// Reading a book: the same chrome as a lesson (floating glass bar, Aa panel, contents) around a paginated web view.
 struct BookReaderView: View {
@@ -65,6 +75,10 @@ struct BookReaderView: View {
     @Environment(\.accent) private var accent
     let bookID: String
     let startTOC: Int?
+    var startHighlight: UUID? = nil
+    @Environment(HighlightStore.self) private var highlights
+    @State private var askPassage: Passage?
+    @State private var showWhosWho = false
 
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
@@ -121,6 +135,17 @@ struct BookReaderView: View {
         ZStack(alignment: .bottom) {
             theme.background.ignoresSafeArea()
             BookWebView(book: book, spine: spine, target: target, loadToken: loadToken, style: style,
+                        marks: highlights.highlights(for: book.id, spine: spine).map(\.text),
+                        onSelect: { action, text in
+                            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !t.isEmpty else { return }
+                            switch action {
+                            case .highlight:
+                                highlights.add(Highlight(book: book.id, spine: spine, text: t, chapter: sectionTitle))
+                            case .ask:
+                                askPassage = Passage(text: t)
+                            }
+                        },
                         onLocation: { s, f, p, n in
                             spine = s; fraction = f; page = p; pages = n
                             shelf.save(BookLocation(spine: s, fraction: f), for: book.id)
@@ -156,7 +181,7 @@ struct BookReaderView: View {
             if chrome {
                 BookBar(style: style, fontRaw: $fontRaw, spacing: $spacing, margin: $margin, justify: $justify, paged: $paged, turnRaw: $turnRaw, finish: $finish,
                         themeRaw: $themeRaw, textSize: $textSize, panelOpen: $panelOpen,
-                        section: sectionTitle, progress: overall) { showContents = true }
+                        section: sectionTitle, progress: overall, showContents: { showContents = true }, showPeople: { showWhosWho = true })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -170,6 +195,13 @@ struct BookReaderView: View {
                 jump(book, toc: tocID)
             }
             .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $askPassage) { passage in
+            AskSheet(title: book.title, author: book.authors.joined(separator: ", "), location: sectionTitle, passage: passage.text)
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showWhosWho) {
+            WhosWhoSheet(book: book, spine: spine).presentationDetents([.medium, .large])
         }
         .onAppear { if !started { begin(book) } }
         .onReceive(NotificationCenter.default.publisher(for: .bookJump)) { n in
@@ -190,6 +222,10 @@ struct BookReaderView: View {
     private func accentHex(_ book: Book) -> String { book.manifest.theme?.accent ?? "#A9C4F5" }
 
     private func begin(_ book: Book) {
+        if LaunchState.showPeople { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showWhosWho = true } }
+        if let h = startHighlight, let hl = highlights.all.first(where: { $0.id == h }) {
+            spine = hl.spine; target = .text(hl.text); loadToken += 1; return
+        }
         if let t = startTOC ?? LaunchState.openTOC { jump(book, toc: t); return }
         if let l = shelf.location(book.id) {
             spine = l.spine; target = .fraction(l.fraction)
@@ -235,6 +271,8 @@ struct BookWebView: UIViewRepresentable {
     let target: BookTarget
     let loadToken: Int
     let style: BookStyle
+    var marks: [String] = []
+    var onSelect: (SelectionAction, String) -> Void = { _, _ in }
     let onLocation: (Int, Double, Int, Int) -> Void
     let onTap: () -> Void
     let onEdge: (Int) -> Void
@@ -248,7 +286,8 @@ struct BookWebView: UIViewRepresentable {
         controller.add(context.coordinator, name: "qbd")
         config.userContentController = controller
         config.dataDetectorTypes = []
-        let web = WKWebView(frame: .zero, configuration: config)
+        let web = ReaderWebView(frame: .zero, configuration: config)
+        web.onSelection = { [weak coordinator = context.coordinator] action in coordinator?.selected(action) }
         web.isOpaque = false
         web.navigationDelegate = context.coordinator
         web.scrollView.delegate = context.coordinator
@@ -283,6 +322,9 @@ struct BookWebView: UIViewRepresentable {
             c.load(spine: spine, target: target)
         } else if c.style != style {
             c.restyle(style)
+        } else if c.marks != marks {
+            c.marks = marks
+            c.applyMarks()
         }
     }
 
@@ -295,6 +337,7 @@ struct BookWebView: UIViewRepresentable {
         weak var web: WKWebView?
         var loadedToken = -1
         var style: BookStyle?
+        var marks: [String] = []
         private var spine = 0
         private var pending: BookTarget?
         private var ready = false
@@ -336,7 +379,26 @@ struct BookWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard let style = parent?.style else { return }
+            marks = parent?.marks ?? []
             apply(style, to: webView)
+        }
+
+        /// Re-finds each highlighted passage in the page and wraps it in a pastel mark.
+        func applyMarks() {
+            guard ready, let web, let data = try? JSONSerialization.data(withJSONObject: marks),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            web.evaluateJavaScript("window.qbd && qbd.mark(\(json))")
+        }
+
+        func selected(_ action: SelectionAction) {
+            guard let web, let parent else { return }
+            web.evaluateJavaScript("window.getSelection().toString()") { result, _ in
+                guard let text = result as? String else { return }
+                DispatchQueue.main.async {
+                    parent.onSelect(action, text)
+                    web.evaluateJavaScript("window.getSelection().removeAllRanges()")
+                }
+            }
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -369,7 +431,9 @@ struct BookWebView: UIViewRepresentable {
             case .fraction(let f): js = "qbd.goFraction(\(f))"
             case .end: js = "qbd.goFraction(1)"
             case .anchor(let id): js = "qbd.goAnchor(\(Self.quoted(id)))"
+            case .text(let t): js = "qbd.goText(\(Self.quoted(t)))"
             }
+            applyMarks()
             web.evaluateJavaScript(js) { [weak self] _, _ in
                 DispatchQueue.main.async {
                     UIView.animate(withDuration: 0.18) { web.alpha = 1 }
@@ -475,6 +539,25 @@ struct BookWebView: UIViewRepresentable {
     }
 }
 
+/// Adds Highlight and Ask to the text-selection menu.
+final class ReaderWebView: WKWebView {
+    var onSelection: ((SelectionAction) -> Void)?
+
+    override func buildMenu(with builder: any UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        let highlight = UIAction(title: "Highlight", image: UIImage(systemName: "highlighter")) { [weak self] _ in self?.onSelection?(.highlight) }
+        let ask = UIAction(title: "Ask", image: UIImage(systemName: "sparkles")) { [weak self] _ in self?.onSelection?(.ask) }
+        builder.insertSibling(UIMenu(options: .displayInline, children: [highlight, ask]), beforeMenu: .standardEdit)
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Keep the menu short: copy and look up, plus ours.
+        if action == #selector(copy(_:)) || NSStringFromSelector(action).hasPrefix("_define") || NSStringFromSelector(action).hasPrefix("_lookup") { return true }
+        if NSStringFromSelector(action).contains("share") || NSStringFromSelector(action).contains("translate") || NSStringFromSelector(action).contains("Search") { return false }
+        return super.canPerformAction(action, withSender: sender)
+    }
+}
+
 extension BookWebView {
     /// A link to another chapter: reload at that chapter and anchor.
     func onLocationJump(_ spine: Int, _ fragment: String?) {
@@ -529,6 +612,7 @@ enum BookScript {
             float: left; font-size: 3.1em; line-height: 0.82; padding: 0.06em 0.08em 0 0; color: ${s.accentDeep} !important; font-weight: normal; }
           html.qbd-finish h1 + p::first-line, html.qbd-finish h2 + p::first-line, html.qbd-finish h3 + p::first-line, html.qbd-finish h4 + p::first-line, html.qbd-finish .qbd-first::first-line { font-variant-caps: small-caps; letter-spacing: 0.02em; }
           ::selection { background: ${s.accent}66; }
+          mark.qbd-hl { background: ${s.accent}80 !important; color: inherit !important; border-radius: 2px; padding: 0.05em 0; }
           html.qbd-paged { height: 100vh !important; overflow-y: hidden !important; }
           html.qbd-paged body { box-sizing: content-box !important; height: calc(100vh - ${s.top + s.bottom}px) !important;
                  padding: ${s.top}px ${s.margin}px ${s.bottom}px ${s.margin}px !important;
@@ -589,6 +673,43 @@ enum BookScript {
             window.scrollTo(0, Math.max(0, f * h));
           }
         },
+        // Highlights: wrap the first occurrence of each passage. Passages that straddle elements get their first
+        // text node marked, which is enough to find them again.
+        mark(texts) {
+          document.querySelectorAll('mark.qbd-hl').forEach(m => { const p = m.parentNode; while (m.firstChild) p.insertBefore(m.firstChild, m); p.removeChild(m); p.normalize(); });
+          const walker = () => document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          for (const t of texts) {
+            const needle = t.replace(/\s+/g, ' ').trim(); if (!needle) continue;
+            const head = needle.slice(0, 60);
+            let w = walker(), node, done = false;
+            while (!done && (node = w.nextNode())) {
+              const hay = node.nodeValue.replace(/\s+/g, ' ');
+              let i = hay.indexOf(needle), len = needle.length;
+              if (i < 0) { i = hay.indexOf(head); len = head.length; }
+              if (i < 0) continue;
+              // map collapsed index back to the raw node text
+              let raw = 0, col = 0; while (col < i && raw < node.nodeValue.length) { if (!/\s/.test(node.nodeValue[raw]) || (raw > 0 && !/\s/.test(node.nodeValue[raw-1]))) col++; raw++; }
+              const range = document.createRange();
+              try { range.setStart(node, raw); range.setEnd(node, Math.min(node.nodeValue.length, raw + len)); } catch (e) { continue; }
+              const m = document.createElement('mark'); m.className = 'qbd-hl';
+              try { range.surroundContents(m); } catch (e) { continue; }
+              done = true;
+            }
+          }
+        },
+        goText(t) {
+          const needle = t.replace(/\s+/g, ' ').trim().slice(0, 60);
+          const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          let node;
+          while ((node = w.nextNode())) {
+            if (node.nodeValue.replace(/\s+/g, ' ').indexOf(needle) >= 0) {
+              const el = node.parentElement; if (!el) return;
+              if (s.paged) { const w2 = window.innerWidth; const x = el.getBoundingClientRect().left + window.scrollX; window.scrollTo(Math.max(0, Math.floor(x / w2)) * w2, 0); }
+              else { window.scrollTo(0, Math.max(0, el.getBoundingClientRect().top + window.scrollY - s.top)); }
+              return;
+            }
+          }
+        },
         goAnchor(id) {
           const el = document.getElementById(id) || document.getElementsByName(id)[0];
           if (!el) return;
@@ -626,6 +747,7 @@ struct BookBar: View {
     let section: String
     let progress: Double
     let showContents: () -> Void
+    var showPeople: () -> Void = {}
     @Namespace private var ns
 
     var body: some View {
@@ -650,6 +772,13 @@ struct BookBar: View {
                         .glassEffectID("progress", in: ns)
                         .onTapGesture(perform: showContents)
                     if !panelOpen {
+                        Button(action: showPeople) {
+                            Image(systemName: "person.2").font(.body.weight(.medium)).frame(width: 50, height: 50).contentShape(.circle)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .glassEffectID("people", in: ns)
+                        .accessibilityLabel("Who’s who")
                         Button { withAnimation(Motion.morph) { panelOpen = true } } label: {
                             Text("Aa").font(Typeface.serif(19)).frame(width: 50, height: 50).contentShape(.circle)
                         }

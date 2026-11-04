@@ -5,12 +5,14 @@ import BookKit
 struct QBDApp: App {
     @State private var library = Library()
     @State private var shelf = Bookshelf()
+    @State private var highlights = HighlightStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(library)
                 .environment(shelf)
+                .environment(highlights)
         }
     }
 }
@@ -107,8 +109,8 @@ struct RouteView: View {
             if let c = library.course(cid) { ReaderView(course: c, lessonID: lid) } else { MissingView() }
         case .bookContents(let id):
             if let b = shelf.book(id) { BookContentsView(book: b).environment(\.accent, CourseAccent(b.manifest.theme)) } else { MissingView() }
-        case .book(let id, let toc):
-            BookReaderView(bookID: id, startTOC: toc)
+        case .book(let id, let toc, let hl):
+            BookReaderView(bookID: id, startTOC: toc, startHighlight: hl)
                 .environment(\.accent, CourseAccent(shelf.book(id)?.manifest.theme))
         }
     }

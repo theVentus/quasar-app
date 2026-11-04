@@ -62,3 +62,6 @@ shot book-page-night "${B[@]}" -openBook field-guide -theme night -toc 1 -hideCh
 shot book-page-scroll "${B[@]}" -openBook field-guide -theme paper -bookPaged NO -toc 2
 shot book-panel "${B[@]}" -openBook field-guide -theme sepia -showSettings YES
 shot book-toc "${B[@]}" -openBook field-guide -theme dusk -showContents YES
+shot book-home-highlights "${B[@]}" -tab home -last book:field-guide -seedHighlights YES -skipEntrance YES -scroll 1
+shot book-highlight-page "${B[@]}" -openBook field-guide -theme sepia -toc 0 -seedHighlights YES
+shot book-whoswho "${B[@]}" -openBook field-guide -theme sepia -toc 2 -showPeople YES

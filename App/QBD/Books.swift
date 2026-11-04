@@ -46,6 +46,21 @@ final class Bookshelf {
 
     func book(_ id: String) -> Book? { books.first { $0.id == id } }
 
+    @ObservationIgnored private var nameCache: [String: NameIndex] = [:]
+
+    /// The book's name index, built on first use and kept beside the book.
+    func names(for book: Book) -> NameIndex {
+        if let hit = nameCache[book.id] { return hit }
+        let url = Self.root.appendingPathComponent(book.id).appendingPathComponent("names.json")
+        if let data = try? Data(contentsOf: url), let idx = try? JSONDecoder().decode(NameIndex.self, from: data) {
+            nameCache[book.id] = idx; return idx
+        }
+        let idx = NameIndex.build(book.package)
+        try? JSONEncoder().encode(idx).write(to: url, options: .atomic)
+        nameCache[book.id] = idx
+        return idx
+    }
+
     // MARK: Progress
 
     func location(_ id: String) -> BookLocation? { locations[id] }
@@ -104,6 +119,7 @@ final class Bookshelf {
         let package = try BookPackage.unpack(epub: dir.appendingPathComponent("book.epub"), to: target.appendingPathComponent("epub"))
         try String(Book.countWords(package)).write(to: target.appendingPathComponent("words.txt"), atomically: true, encoding: .utf8)
         try JSONEncoder().encode(Install(digest: digest)).write(to: target.appendingPathComponent("install.json"))
+        try? JSONEncoder().encode(NameIndex.build(package)).write(to: target.appendingPathComponent("names.json"), options: .atomic)
     }
 
     private func installFixtures() {
