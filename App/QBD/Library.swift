@@ -84,6 +84,15 @@ enum LaunchState {
     static var showReentry: Bool { defaults.bool(forKey: "reentry") }
     static var seedHighlights: Bool { defaults.bool(forKey: "seedHighlights") }
     static var showPeople: Bool { defaults.bool(forKey: "showPeople") }
+    /// CI: after launch states have had time to render, write Documents/qbd-ready so screenshots don't wait blind.
+    static func signalReadyIfAsked() {
+        guard defaults.bool(forKey: "readyFile") else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: docs.appendingPathComponent("qbd-ready").path, contents: Data())
+        }
+    }
     static var hideChrome: Bool { defaults.bool(forKey: "hideChrome") }
     static var landingOverride: String? { defaults.string(forKey: "landing") }
     static var lastItem: String? { defaults.string(forKey: "last") }

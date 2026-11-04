@@ -12,36 +12,93 @@ concurrency:
 defaults:
   run:
     shell: bash -eo pipefail {0}
+
+# Three jobs run side by side (macOS runners are free on public repos):
+#   tests        CourseKit/BookKit unit tests
+#   screenshots  simulator build + fixed states → ci-shots branch (sample book only, no vault)
+#   ipa          seals vault books, builds the unsigned IPA; publishes only if tests pass
 jobs:
-  build:
+  tests:
     runs-on: macos-26
-    timeout-minutes: 50
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-
       - name: Select Xcode 26
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
-          xcodebuild -version | tee -a ci.log
-
-      # Boot the simulator now so its cold start (3–8 min) overlaps the tests and builds.
-      - name: Pick simulator
-        run: |
-          echo "UDID=$(python3 App/scripts/pick-sim.py 2>>ci.log)" >> "$GITHUB_ENV"
-      - name: Boot simulator in the background
-        run: xcrun simctl boot "$UDID" 2>/dev/null || true
-
-      - name: Cache SwiftPM checkouts
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+      - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
           path: |
             Packages/QBDKit/.build
-            App/build/sim/SourcePackages
-            App/build/device/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved', 'Packages/QBDKit/Package.swift', 'App/project.yml') }}
-
-      - name: CourseKit tests
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-tests-${{ hashFiles('Packages/QBDKit/Package.swift', 'Packages/QBDKit/Sources/**', 'Packages/QBDKit/Tests/**') }}
+          restore-keys: spm-tests-
+      - name: Unit tests
         run: cd Packages/QBDKit && swift test 2>&1 | tee -a ../../ci.log
+      - name: Report failure
+        if: failure()
+        run: |
+          touch ci.log
+          grep -E "error:|failed|Error" ci.log | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode 26
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+      # Boot first so the simulator's cold start overlaps project generation and the build.
+      - name: Pick and boot simulator
+        run: |
+          UDID=$(python3 App/scripts/pick-sim.py 2>>ci.log)
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            App/build/spm
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-app-${{ hashFiles('Packages/QBDKit/Package.swift', 'App/project.yml') }}
+          restore-keys: spm-app-
+      - name: Generate project
+        run: |
+          mkdir -p App/build/vault && touch App/build/vault/.keep
+          brew install xcodegen >/dev/null && cd App && xcodegen generate 2>&1 | tee -a ../ci.log
+      - name: Screenshots
+        timeout-minutes: 22
+        run: bash App/scripts/screenshots.sh 2>&1 | tee -a ci.log
+      - name: Publish screenshots to ci-shots branch
+        run: |
+          cd shots
+          git init -q -b ci-shots
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "shots ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-shots
+      - name: Report failure
+        if: failure()
+        run: |
+          touch ci.log
+          grep -E "error:|failed|Error|Traceback|no iOS 26" ci.log | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+          tail -40 ci.log | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed 's/^/::warning title=tail::/'; echo
+
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode 26
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            App/build/spm
+            Packages/QBDKit/.build
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-ipa-${{ hashFiles('Packages/QBDKit/Package.swift', 'App/project.yml') }}
+          restore-keys: spm-ipa-
 
       # Books live in the private quasar-vault repo. They are sealed with the library passphrase so the public IPA
       # carries only ciphertext. Without both secrets the app builds with no books. Logs print counts only.
@@ -70,31 +127,47 @@ jobs:
           touch App/build/vault/.keep
 
       - name: Generate project
-        run: brew install xcodegen && cd App && xcodegen generate 2>&1 | tee -a ../ci.log
-
-      - name: Screenshots
-        timeout-minutes: 20
-        run: bash App/scripts/screenshots.sh 2>&1 | tee -a ci.log
-
-      - name: Publish screenshots to ci-shots branch
-        run: |
-          cd shots
-          git init -q -b ci-shots
-          git add .
-          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "shots ${GITHUB_SHA::7}"
-          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-shots
+        run: brew install xcodegen >/dev/null && cd App && xcodegen generate 2>&1 | tee -a ../ci.log
 
       - name: Build unsigned IPA
         run: |
           cd App
           xcodebuild -project QBD.xcodeproj -scheme QBD -configuration Release -sdk iphoneos \
-            -destination generic/platform=iOS -derivedDataPath build/device \
+            -destination generic/platform=iOS -derivedDataPath build/device -clonedSourcePackagesDirPath build/spm \
+            -skipPackagePluginValidation COMPILER_INDEX_STORE_ENABLE=NO \
             MARKETING_VERSION=0.1.${{ github.run_number }} CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build -quiet 2>&1 | tee -a ../ci.log
           mkdir -p Payload && cp -R build/device/Build/Products/Release-iphoneos/QBD.app Payload/
           zip -qr QBD.ipa Payload
           python3 scripts/altstore-source.py QBD.ipa 0.1.${{ github.run_number }} ${{ github.run_number }} altstore.json
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: App/QBD.ipa
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: altstore
+          path: App/altstore.json
+          retention-days: 3
+
+      - name: Report failure
+        if: failure()
+        run: |
+          touch ci.log
+          grep -E "error:|failed|Error|Traceback" ci.log | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+          tail -40 ci.log | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed 's/^/::warning title=tail::/'; echo
+
+  # The release only moves when the tests pass and the IPA built. Screenshots don't gate it.
+  publish:
+    runs-on: ubuntu-latest
+    needs: [tests, ipa]
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: ipa }
+      - uses: actions/download-artifact@v4
+        with: { name: altstore }
       - name: Publish IPA to release "latest"
         env:
           GH_TOKEN: ${{ github.token }}
@@ -102,13 +175,5 @@ jobs:
           R=${{ github.repository }}
           gh release view latest -R $R >/dev/null 2>&1 || \
             gh release create latest -R $R --prerelease --title "Latest build" --notes "Unsigned IPA. Install with AltStore or Sideloadly."
-          gh release upload latest App/QBD.ipa App/altstore.json -R $R --clobber
+          gh release upload latest QBD.ipa altstore.json -R $R --clobber
           gh release edit latest -R $R --notes "Unsigned IPA from ${GITHUB_SHA::7}. Install with AltStore (add altstore.json as a source) or Sideloadly."
-
-      # Raw logs aren't reachable from the dev sandbox; surface failures as annotations instead.
-      - name: Report failure
-        if: failure()
-        run: |
-          touch ci.log
-          grep -E "error:|failed|Error|Traceback|no iOS 26" ci.log | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
-          tail -40 ci.log | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed 's/^/::warning title=tail::/'; echo

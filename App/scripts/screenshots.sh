@@ -7,7 +7,8 @@ BID=com.theventus.qbd
 OUT="$(pwd)/../shots"; mkdir -p "$OUT"
 
 xcodebuild -project QBD.xcodeproj -scheme QBD -configuration Debug -destination "id=$UDID" \
-  -derivedDataPath build/sim build -quiet
+  -derivedDataPath build/sim -clonedSourcePackagesDirPath build/spm \
+  -skipPackagePluginValidation COMPILER_INDEX_STORE_ENABLE=NO build -quiet
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b
 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 \
@@ -20,7 +21,17 @@ launch() {
   xcrun simctl terminate "$UDID" "$BID" 2>/dev/null || true
   xcrun simctl launch "$UDID" "$BID" "$@" >/dev/null
 }
-shot() { local name=$1; shift; launch "$@"; sleep 3.5; xcrun simctl io "$UDID" screenshot "$OUT/$name.png" >/dev/null; echo "shot $name"; }
+DATA=$(xcrun simctl get_app_container "$UDID" "$BID" data)
+# The app writes Documents/qbd-ready once a launch state has rendered (-readyFile YES); poll for it instead of
+# sleeping a fixed time. Falls back to 6 s if the marker never appears.
+shot() {
+  local name=$1; shift
+  rm -f "$DATA/Documents/qbd-ready"
+  launch -readyFile YES "$@"
+  for _ in $(seq 1 30); do [ -f "$DATA/Documents/qbd-ready" ] && break; sleep 0.2; done
+  sleep 0.4
+  xcrun simctl io "$UDID" screenshot "$OUT/$name.png" >/dev/null; echo "shot $name"
+}
 
 # burst <name> <first wait> <gap> <count> <launch args>: frames from one launch, to check motion and glass morphs
 burst() {

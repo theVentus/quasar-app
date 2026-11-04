@@ -87,6 +87,7 @@ struct RootView: View {
     }
 
     private func applyLaunchState() {
+        LaunchState.signalReadyIfAsked()
         if let t = LaunchState.tab { tab = t }
         guard let c = library.courses.first else { return }
         if LaunchState.openCourse { tab = .home; homePath = [.course(c.id)] }
