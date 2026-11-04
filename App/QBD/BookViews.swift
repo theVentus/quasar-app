@@ -11,9 +11,14 @@ struct BookBackdrop: View {
     var style: String? = nil
 
     var body: some View {
-        let scene = SceneState.current(for: book, location: LaunchState.sceneOverride ?? shelf.location(book.id))
-        switch style ?? LaunchState.landingOverride ?? book.manifest.theme?.landing ?? "cover" {
-        case "web": LandingArt(scene: scene)
+        let location = LaunchState.sceneOverride ?? shelf.location(book.id)
+        let scene = SceneState.current(for: book, location: location)
+        let landing = style ?? LaunchState.landingOverride ?? book.manifest.theme?.landing ?? "cover"
+        switch landing {
+        case "stages" where shelf.stages(for: book) != nil:
+            let set = shelf.stages(for: book)!
+            LandingStages(set: set, position: StagePosition.current(for: book, location: location, count: set.count))
+        case "web", "stages": LandingArt(scene: scene)
         case "web-classic": WebBackdrop(scene: scene)
         case "sky": SkyView()
         default: CoverBackdrop(book: book)
@@ -277,9 +282,9 @@ struct CoverImage: View {
 
 // MARK: Landing
 
-/// Home for a book, in the book's own style.
-/// Home for a book: the back of a paperback. Title, a press line, the first lines of the description, then the actions.
-/// Everything settles in a beat apart on arrival; the backdrop advances as you read.
+/// Home for a book. The art owns the screen; at its foot sit the part you are in, the title, one press line,
+/// a progress hairline and the actions. The award, the description and your highlights wait one scroll down,
+/// where the art dims behind them.
 struct BookLanding: View {
     @Environment(Bookshelf.self) private var shelf
     @Environment(\.accent) private var accent
@@ -290,9 +295,19 @@ struct BookLanding: View {
     @State private var stage = 0
     @State private var expanded = false
     @State private var quoteIndex = 0
+    @State private var dim = 0.0
 
     private var praise: [BookManifest.Praise] { book.manifest.praise ?? [] }
     private var isCoverStyle: Bool { (book.manifest.theme?.landing ?? "cover") == "cover" }
+
+    /// "PART 4 · ENLIGHTENMENT" while reading a book with parts; otherwise "UP NEXT" / "NOW READING".
+    private var eyebrow: String {
+        guard let l = shelf.location(book.id) else { return "UP NEXT" }
+        guard book.outline.hasParts, book.outline.parts.count > 1, let e = book.package.tocEntry(spine: l.spine),
+              let part = book.outline.part(containingTOC: e.id) else { return "NOW READING" }
+        let n = part.number.map { "PART \($0)" }
+        return [n, part.title.isEmpty ? nil : part.title.uppercased()].compactMap { $0 }.joined(separator: " · ")
+    }
 
     var body: some View {
         ScrollView {
@@ -309,51 +324,55 @@ struct BookLanding: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     Spacer(minLength: 0)
                     if isCoverStyle {
-                        CoverImage(book: book, width: 110).padding(.bottom, 8).reveal(stage >= 1)
+                        CoverImage(book: book, width: 96).padding(.bottom, 16).reveal(stage >= 1)
                     }
-                    Text(shelf.location(book.id) == nil ? "UP NEXT" : "NOW READING")
+                    Text(eyebrow)
                         .font(.caption.weight(.semibold))
                         .tracking(2)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(.white.opacity(0.62))
                         .reveal(stage >= 1)
                     Text(book.title)
-                        .font(Typeface.serif(46))
+                        .font(Typeface.serif(42))
                         .foregroundStyle(.white)
                         .lineLimit(3)
                         .minimumScaleFactor(0.55)
+                        .padding(.top, 8)
                         .reveal(stage >= 1)
                     Text(book.authors.joined(separator: ", "))
-                        .font(Typeface.serif(20, italic: true))
+                        .font(Typeface.serif(19, italic: true))
                         .foregroundStyle(.white.opacity(0.75))
+                        .padding(.top, 4)
                         .reveal(stage >= 1)
-                    if let awards = book.manifest.awards {
-                        Text(awards.uppercased())
-                            .font(.caption2.weight(.semibold))
-                            .tracking(1.4)
-                            .foregroundStyle(accent.pastel)
-                            .reveal(stage >= 2)
-                    }
                     if !praise.isEmpty {
                         PressLine(praise: praise, index: quoteIndex)
-                            .padding(.top, 4)
+                            .padding(.top, 16)
                             .reveal(stage >= 2)
                     }
-                    if let about = book.manifest.about {
-                        Blurb(text: about, expanded: $expanded)
-                            .padding(.top, 2)
-                            .reveal(stage >= 3)
-                    }
-                    BookStats(book: book).padding(.top, 6).reveal(stage >= 4)
-                    BookActions(book: book, open: open).padding(.top, 6).reveal(stage >= 4)
+                    ProgressHairline(book: book).padding(.top, 20).reveal(stage >= 3)
+                    BookActions(book: book, open: open).padding(.top, 16).reveal(stage >= 3)
+                    Label("About · Highlights", systemImage: "chevron.down")
+                        .labelStyle(TrailingIcon())
+                        .font(.caption2.weight(.semibold))
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(.white.opacity(0.4))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 18)
+                        .reveal(stage >= 4)
+                        .accessibilityHidden(true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
-                .padding(.bottom, 28)
-                .containerRelativeFrame(.vertical) { h, _ in max(h * 0.84, 560) }
+                .padding(.bottom, 14)
+                .containerRelativeFrame(.vertical) { h, _ in max(h * 0.93, 560) }
 
+                AboutSection(book: book, expanded: $expanded)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
+                    .padding(.bottom, 28)
                 HighlightsSection(book: book, open: open)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 40)
@@ -361,17 +380,24 @@ struct BookLanding: View {
         }
         .defaultScrollAnchor(LaunchState.scrollTo != nil ? .bottom : .top)
         .scrollIndicators(.hidden)
+        .onScrollGeometryChange(for: Double.self) { g in Double(g.contentOffset.y + g.contentInsets.top) } action: { _, y in
+            dim = min(1, max(0, y / 360))
+        }
         .background {
             BookBackdrop(book: book)
-                .overlay(Color.black.opacity(expanded ? 0.35 : 0))
-                .animation(.smooth, value: expanded)
+                .overlay {
+                    // Legibility at the foot of the art, and a deeper dim once you scroll into the details.
+                    LinearGradient(stops: [.init(color: .clear, location: 0.48), .init(color: .black.opacity(0.55), location: 0.7),
+                                           .init(color: .black.opacity(0.88), location: 1)], startPoint: .top, endPoint: .bottom)
+                }
+                .overlay(Color.black.opacity(dim * 0.6))
                 .ignoresSafeArea()
         }
         .environment(\.colorScheme, .dark)
         .task {
             if reduceMotion || LaunchState.isScreenshotting { stage = 4; return }
             for i in 1...4 {
-                try? await Task.sleep(for: .milliseconds(i == 1 ? 60 : 110))
+                try? await Task.sleep(for: .milliseconds(i == 1 ? 60 : 120))
                 withAnimation(.smooth(duration: 0.5)) { stage = i }
             }
         }
@@ -381,6 +407,70 @@ struct BookLanding: View {
                 try? await Task.sleep(for: .seconds(9))
                 withAnimation(.smooth(duration: 0.8)) { quoteIndex = (quoteIndex + 1) % praise.count }
             }
+        }
+    }
+}
+
+struct TrailingIcon: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) { configuration.title; configuration.icon }
+    }
+}
+
+/// A thin line for how far you have read, with the percentage; or the length when you have not started.
+struct ProgressHairline: View {
+    @Environment(Bookshelf.self) private var shelf
+    @Environment(\.accent) private var accent
+    let book: Book
+
+    var body: some View {
+        let p = shelf.progress(book)
+        HStack(spacing: 12) {
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.16))
+                    Capsule().fill(accent.pastel).frame(width: max(2, g.size.width * CGFloat(p)))
+                }
+            }
+            .frame(height: 2)
+            Text(p > 0 ? "\(Int((p * 100).rounded()))%" : "≈ \(max(1, Int(book.readingHours.rounded()))) h")
+                .font(.footnote.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.white.opacity(0.72))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(p > 0 ? "\(Int((p * 100).rounded())) percent read" : "About \(max(1, Int(book.readingHours.rounded()))) hours")
+    }
+}
+
+/// Below the fold: the award, the description and the book's shape, set quietly.
+struct AboutSection: View {
+    let book: Book
+    @Binding var expanded: Bool
+    @Environment(\.accent) private var accent
+
+    var body: some View {
+        let o = book.outline
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ABOUT")
+                .font(.caption.weight(.semibold))
+                .tracking(1.6)
+                .foregroundStyle(.white.opacity(0.6))
+            if let awards = book.manifest.awards {
+                Text(awards.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(accent.pastel)
+            }
+            if let about = book.manifest.about {
+                Blurb(text: about, expanded: $expanded)
+            }
+            let bits: [String?] = [o.parts.count > 1 ? "\(o.parts.count) parts" : nil, "\(o.chapterCount) chapters",
+                                   "≈ \(max(1, Int(book.readingHours.rounded()))) h"]
+            Text(bits.compactMap { $0 }.joined(separator: "  ·  "))
+                .font(.footnote.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.white.opacity(0.55))
         }
     }
 }
@@ -418,7 +508,7 @@ struct Blurb: View {
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.78))
-                .lineLimit(expanded ? nil : 2)
+                .lineLimit(expanded ? nil : 4)
                 .fixedSize(horizontal: false, vertical: true)
                 .mask {
                     if expanded { Rectangle() } else {
@@ -497,9 +587,11 @@ struct BookActions: View {
                 .buttonStyle(.glassProminent)
                 .tint(accent.pastel)
                 Button { open(.bookContents(book.id)) } label: {
-                    Text("Contents").font(.headline).foregroundStyle(.primary).padding(.horizontal, 10).padding(.vertical, 8)
+                    Image(systemName: "list.bullet").font(.headline).foregroundStyle(.primary).frame(width: 26, height: 26).padding(6)
                 }
                 .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Contents")
             }
         }
     }

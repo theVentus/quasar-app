@@ -632,7 +632,7 @@ struct BookWebView: UIViewRepresentable {
                 sv.setContentOffset(target, animated: false)
                 let curl = style?.turn == "curl"
                 let options: UIView.AnimationOptions = curl ? (dir > 0 ? .transitionCurlUp : .transitionCurlDown) : .transitionCrossDissolve
-                UIView.transition(with: web, duration: curl ? 0.8 : 0.4, options: [options, .curveEaseInOut, .allowAnimatedContent]) {
+                UIView.transition(with: web, duration: curl ? 1.0 : 0.4, options: [options, .curveEaseInOut, .allowAnimatedContent]) {
                     snap.removeFromSuperview()
                 } completion: { [weak self] _ in self?.report() }
             default:

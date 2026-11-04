@@ -40,6 +40,15 @@ for dir in try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: ni
         _ = try JSONDecoder().decode(Companion.self, from: Data(contentsOf: companion))   // must decode
         try fm.copyItem(at: companion, to: stage.appendingPathComponent("companion.json"))
     }
+    // Landing art (stage-N.jpg, objects-N.png) travels sealed too.
+    let art = dir.appendingPathComponent("art", isDirectory: true)
+    if fm.fileExists(atPath: art.path) {
+        let files = try fm.contentsOfDirectory(at: art, includingPropertiesForKeys: nil)
+            .filter { ["jpg", "png"].contains($0.pathExtension.lowercased()) }
+        let dest = stage.appendingPathComponent("art", isDirectory: true)
+        try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        for f in files { try fm.copyItem(at: f, to: dest.appendingPathComponent(f.lastPathComponent)) }
+    }
     let zip = fm.temporaryDirectory.appendingPathComponent("seal-\(UUID().uuidString).zip")
     try fm.zipItem(at: stage, to: zip, shouldKeepParent: false)
     let blob = try Vault.seal(Data(contentsOf: zip), passphrase: passphrase)

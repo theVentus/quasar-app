@@ -49,8 +49,8 @@ for mode in light dark; do
   shot "library-$mode" "${B[@]}" -tab library
 done
 xcrun simctl ui "$UDID" appearance dark
-shot book-home-web "${B[@]}" -tab home -last book:field-guide -landing web -skipEntrance YES
-shot book-home-web-late "${B[@]}" -tab home -last book:field-guide -landing web -scene 4 -skipEntrance YES
+shot book-home-web "${B[@]}" -tab home -last book:field-guide -landing stages -skipEntrance YES
+shot book-home-web-late "${B[@]}" -tab home -last book:field-guide -landing stages -scene 4 -skipEntrance YES
 shot book-home-highlights "${B[@]}" -tab home -last book:field-guide -seedHighlights YES -skipEntrance YES -scroll 1
 shot book-contents "${B[@]}" -bookContents field-guide -last book:field-guide
 shot highlights-tab "${B[@]}" -tab highlights -seedHighlights YES

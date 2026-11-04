@@ -59,6 +59,16 @@ final class Bookshelf {
         return idx
     }
 
+    @ObservationIgnored private var stageCache: [String: StageSet?] = [:]
+
+    /// The book's pre-rendered landing stages, if any shipped with it.
+    func stages(for book: Book) -> StageSet? {
+        if let hit = stageCache[book.id] { return hit }
+        let set = StageSet.load(Self.root.appendingPathComponent(book.id).appendingPathComponent("art", isDirectory: true))
+        stageCache[book.id] = set
+        return set
+    }
+
     /// The book's name index, built on first use and kept beside the book.
     func names(for book: Book) -> NameIndex {
         if let hit = nameCache[book.id] { return hit }
@@ -134,6 +144,10 @@ final class Bookshelf {
         let companion = dir.appendingPathComponent("companion.json")
         if fm.fileExists(atPath: companion.path) {
             try fm.copyItem(at: companion, to: target.appendingPathComponent("companion.json"))
+        }
+        let art = dir.appendingPathComponent("art", isDirectory: true)
+        if fm.fileExists(atPath: art.path) {
+            try fm.copyItem(at: art, to: target.appendingPathComponent("art", isDirectory: true))
         }
     }
 
