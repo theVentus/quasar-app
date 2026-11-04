@@ -360,6 +360,7 @@ struct ChapterTitleCard: View {
         .gesture(DragGesture(minimumDistance: 20).onEnded { _ in dismiss() })
         .onAppear {
             start = Date()
+            if LaunchState.isScreenshotting { shown = true; return }
             withAnimation(.smooth(duration: 0.9).delay(onPaper ? 1.4 : 0.25)) { shown = true }
         }
         .accessibilityElement(children: .combine)
