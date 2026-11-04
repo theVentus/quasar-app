@@ -130,10 +130,15 @@ public struct CompanionIndex: Sendable {
 
     /// Aliases → entity id for names the reader has met, longest first so "Doctor Kern" wins over "Kern".
     public func nameMap(at i: Int) -> [(String, String)] {
-        var out: [(String, String)] = []
+        // A name shared by several entities (a namesake in a later era) points at the most recently introduced one.
+        var best: [String: (id: String, since: Int)] = [:]
         for (e, _) in known(at: i) where e.kind == "character" || e.kind == "group" || e.kind == "ship" || e.kind == "place" {
-            for n in Set([e.name] + (e.aliases ?? [])) where n.count >= 3 { out.append((n, e.id)) }
+            let since = e.states.compactMap { spineOf[$0.href] }.min() ?? 0
+            for n in Set([e.name] + (e.aliases ?? [])) where n.count >= 3 && !n.contains("(") {
+                if let b = best[n], b.since > since { continue }
+                best[n] = (e.id, since)
+            }
         }
-        return out.sorted { $0.0.count > $1.0.count }
+        return best.map { ($0.key, $0.value.id) }.sorted { $0.0.count > $1.0.count }
     }
 }
