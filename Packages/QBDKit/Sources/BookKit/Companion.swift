@@ -90,6 +90,11 @@ public struct CompanionIndex: Sendable {
         chapterBySpine.keys.filter { $0 <= i }.max() ?? i
     }
 
+    /// The states of an entity the reader may see at spine `i`, in story order.
+    public func visibleStates(of e: Companion.Entity, at i: Int) -> [Companion.State] {
+        e.states.filter { visible($0, at: i) }
+    }
+
     /// The latest visible description of an entity at spine `i`, or nil if the reader hasn't met it.
     public func description(of e: Companion.Entity, at i: Int) -> String? {
         e.states.filter { visible($0, at: i) }.max { (spineOf[$0.href] ?? 0, $0.at == "end" ? 1 : 0) < (spineOf[$1.href] ?? 0, $1.at == "end" ? 1 : 0) }?.text

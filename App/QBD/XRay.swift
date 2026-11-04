@@ -106,7 +106,7 @@ struct EntityDetail: View {
 
     var body: some View {
         let seen = index.appearances(of: entity.id, through: spine)
-        let states = entity.states.filter { s in index.description(of: Companion.Entity(id: entity.id, name: entity.name, kind: entity.kind, aliases: nil, states: [s]), at: spine) != nil }
+        let states = index.visibleStates(of: entity, at: spine)
         List {
             Section {
                 HStack(spacing: 14) {
