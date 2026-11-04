@@ -47,6 +47,17 @@ final class Bookshelf {
     func book(_ id: String) -> Book? { books.first { $0.id == id } }
 
     @ObservationIgnored private var nameCache: [String: NameIndex] = [:]
+    @ObservationIgnored private var companionCache: [String: CompanionIndex] = [:]
+
+    /// The book's reading companion (X-Ray, recaps, scene cues), if one shipped with it.
+    func companion(for book: Book) -> CompanionIndex? {
+        if let hit = companionCache[book.id] { return hit }
+        let url = Self.root.appendingPathComponent(book.id).appendingPathComponent("companion.json")
+        guard let c = Companion.load(url) else { return nil }
+        let idx = CompanionIndex(c, package: book.package)
+        companionCache[book.id] = idx
+        return idx
+    }
 
     /// The book's name index, built on first use and kept beside the book.
     func names(for book: Book) -> NameIndex {
@@ -120,6 +131,10 @@ final class Bookshelf {
         try String(Book.countWords(package)).write(to: target.appendingPathComponent("words.txt"), atomically: true, encoding: .utf8)
         try JSONEncoder().encode(Install(digest: digest)).write(to: target.appendingPathComponent("install.json"))
         try? JSONEncoder().encode(NameIndex.build(package)).write(to: target.appendingPathComponent("names.json"), options: .atomic)
+        let companion = dir.appendingPathComponent("companion.json")
+        if fm.fileExists(atPath: companion.path) {
+            try fm.copyItem(at: companion, to: target.appendingPathComponent("companion.json"))
+        }
     }
 
     private func installFixtures() {

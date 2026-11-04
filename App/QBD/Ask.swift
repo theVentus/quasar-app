@@ -8,6 +8,8 @@ struct AskSheet: View {
     let author: String
     let location: String
     let passage: String
+    /// Recaps and people known so far, from the book's companion (spoiler-safe by construction).
+    var context: String = ""
     @State private var question = ""
     @State private var answer: String?
     @State private var busy = false
@@ -58,6 +60,7 @@ struct AskSheet: View {
         guard !q.isEmpty else { return }
         busy = true; error = nil; answer = nil
         let system = Claude.bookSystem(title: title, author: author, upTo: location)
+            + (context.isEmpty ? "" : "\n\nWhat the reader already knows (use it, and nothing beyond it):\n" + context)
         let user = "Passage:\n\(passage)\n\nQuestion: \(q)"
         Task {
             do { answer = try await Claude.ask(system: system, user: user) } catch { self.error = error.localizedDescription }

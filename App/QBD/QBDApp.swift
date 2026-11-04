@@ -19,7 +19,7 @@ struct QBDApp: App {
 /// Pages are never glass.
 struct RootView: View {
     @Environment(Bookshelf.self) private var shelf
-    @AppStorage("lastItem") private var lastItem = """
+    @AppStorage("lastItem") private var lastItem = ""
     @State private var tab: AppTab = .home
     @State private var homePath: [Route] = []
     @State private var libraryPath: [Route] = []

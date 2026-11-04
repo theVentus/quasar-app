@@ -79,6 +79,11 @@ struct BookReaderView: View {
     @Environment(HighlightStore.self) private var highlights
     @State private var askPassage: Passage?
     @State private var showWhosWho = false
+    @State private var titleCard: Companion.Chapter?
+    @State private var entityCard: Companion.Entity?
+    @State private var xrayFocus: String?
+    @State private var previously: Companion.Chapter?
+    @AppStorage("chapterOpeners") private var chapterOpeners = true
 
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
@@ -131,11 +136,16 @@ struct BookReaderView: View {
         let chapter = entry.flatMap { book.outline.chapter(forTOC: $0.id) }
         let sectionTitle = chapter.map { [$0.number, $0.title].compactMap { $0 }.joined(separator: "  ") } ?? book.title
         let overall = book.package.progress(spine: spine, fraction: fraction)
+        let companion = shelf.companion(for: book)
+        let scene = companion?.chapter(atSpine: spine)
 
         ZStack(alignment: .bottom) {
             theme.background.ignoresSafeArea()
             BookWebView(book: book, spine: spine, target: target, loadToken: loadToken, style: style,
                         marks: highlights.highlights(for: book.id, spine: spine).map(\.text),
+                        names: companion?.nameMap(at: spine) ?? [],
+                        tint: scene?.palette.dropFirst().first,
+                        onEntity: { id in entityCard = companion?.companion.entities.first { $0.id == id } },
                         onSelect: { action, text in
                             let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !t.isEmpty else { return }
@@ -156,7 +166,21 @@ struct BookReaderView: View {
                         onEdge: { dir in step(book, dir) })
                 .ignoresSafeArea()
 
-            if let reentry {
+            if let card = titleCard {
+                let ch = book.package.tocEntry(spine: spine).flatMap { book.outline.chapter(forTOC: $0.id) }
+                ChapterTitleCard(chapter: card, number: ch?.number, storyline: companion?.companion.storylines[card.storyline],
+                                 seed: spine) { withAnimation(.smooth(duration: 0.5)) { titleCard = nil } }
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
+            if let prev = previously {
+                PreviouslyCard(chapter: prev) { withAnimation(.smooth) { previously = nil } }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, chrome ? 8 : 40)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
+            if let reentry, previously == nil {
                 Text(reentry)
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(theme.ink)
@@ -197,12 +221,27 @@ struct BookReaderView: View {
             .presentationDetents([.medium, .large])
         }
         .sheet(item: $askPassage) { passage in
-            AskSheet(title: book.title, author: book.authors.joined(separator: ", "), location: sectionTitle, passage: passage.text)
+            AskSheet(title: book.title, author: book.authors.joined(separator: ", "), location: sectionTitle, passage: passage.text,
+                     context: companion.map { askContext($0) } ?? "")
                 .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showWhosWho) {
-            WhosWhoSheet(book: book, spine: spine).presentationDetents([.medium, .large])
+            if let companion {
+                XRaySheet(index: companion, spine: spine, focus: xrayFocus).presentationDetents([.medium, .large])
+            } else {
+                WhosWhoSheet(book: book, spine: spine).presentationDetents([.medium, .large])
+            }
         }
+        .sheet(item: $entityCard) { e in
+            if let companion {
+                EntityCard(index: companion, entity: e, spine: spine) {
+                    entityCard = nil
+                    xrayFocus = e.id
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showWhosWho = true }
+                }
+            }
+        }
+        .onChange(of: showWhosWho) { _, open in if !open { xrayFocus = nil } }
         .onAppear { if !started { begin(book) } }
         .onReceive(NotificationCenter.default.publisher(for: .bookJump)) { n in
             guard let s = n.userInfo?["spine"] as? Int else { return }
@@ -221,12 +260,35 @@ struct BookReaderView: View {
 
     private func accentHex(_ book: Book) -> String { book.manifest.theme?.accent ?? "#A9C4F5" }
 
+    /// What Claude may know: recaps of chapters already finished and who the reader has met, as of now.
+    private func askContext(_ c: CompanionIndex) -> String {
+        let done = c.chaptersRead(through: spine).dropLast().suffix(8)
+        let recaps = done.map { "- \($0.title): \($0.recap)" }.joined(separator: "\n")
+        let people = c.known(at: spine).prefix(30).map { "- \($0.entity.name): \($0.text)" }.joined(separator: "\n")
+        return "Recaps of recent chapters the reader has finished:\n\(recaps)\n\nPeople, places and terms the reader has met so far:\n\(people)"
+    }
+
+    /// Shows the chapter opener when a chapter starts from its first page.
+    private func openChapter(_ book: Book, at s: Int) {
+        guard chapterOpeners, let c = shelf.companion(for: book), let ch = c.chapter(atSpine: s), c.spine(of: ch.href) == s else { return }
+        withAnimation(.smooth(duration: 0.4)) { titleCard = ch }
+    }
+
     private func begin(_ book: Book) {
         if LaunchState.showPeople { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showWhosWho = true } }
         if let h = startHighlight, let hl = highlights.all.first(where: { $0.id == h }) {
             spine = hl.spine; target = .text(hl.text); loadToken += 1; return
         }
-        if let t = startTOC ?? LaunchState.openTOC { jump(book, toc: t); return }
+        if let t = startTOC ?? LaunchState.openTOC {
+            jump(book, toc: t)
+            if let e = book.package.toc.first(where: { $0.id == t }), let s = e.spineIndex {
+                if LaunchState.showOpener { openChapter(book, at: s) }
+                if LaunchState.showReentry, let prev = shelf.companion(for: book)?.previousRecap(before: s) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation(.smooth) { previously = prev } }
+                }
+            }
+            return
+        }
         if let l = shelf.location(book.id) {
             spine = l.spine; target = .fraction(l.fraction)
             // Away for a while: name the chapter you're picking up, briefly.
@@ -235,11 +297,16 @@ struct BookReaderView: View {
                 let part = book.outline.part(containingTOC: e.id)
                 let label = [ch.number, ch.title].compactMap { $0 }.joined(separator: "  ")
                 let text = "Picking up · " + (part.map { !$0.title.isEmpty && $0.entry?.id != ch.id ? "\($0.title) · " : "" } ?? "") + label
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation(.smooth) { reentry = text } }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 4.2) { withAnimation(.smooth) { reentry = nil } }
+                if let prev = shelf.companion(for: book)?.previousRecap(before: l.spine) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation(.smooth) { previously = prev } }
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation(.smooth) { reentry = text } }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4.2) { withAnimation(.smooth) { reentry = nil } }
+                }
             }
         } else {
             spine = book.startSpineIndex; target = .fraction(0)
+            openChapter(book, at: spine)
         }
         loadToken += 1
         if LaunchState.showSettings { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { withAnimation(Motion.morph) { panelOpen = true } } }
@@ -249,9 +316,11 @@ struct BookReaderView: View {
 
     private func jump(_ book: Book, toc id: Int) {
         guard let e = book.package.toc.first(where: { $0.id == id }), let s = e.spineIndex else { return }
+        let fresh = s != spine
         spine = s
         target = e.fragment.map { .anchor($0) } ?? .fraction(0)
         loadToken += 1
+        if fresh, started { openChapter(book, at: s) }
     }
 
     private func step(_ book: Book, _ dir: Int) {
@@ -260,6 +329,7 @@ struct BookReaderView: View {
         spine = next
         target = dir > 0 ? .fraction(0) : .end
         loadToken += 1
+        if dir > 0 { openChapter(book, at: next) }
     }
 }
 
@@ -272,6 +342,11 @@ struct BookWebView: UIViewRepresentable {
     let loadToken: Int
     let style: BookStyle
     var marks: [String] = []
+    /// Names the reader has met → entity id, longest first; drawn as tappable names in the text.
+    var names: [(String, String)] = []
+    /// The chapter's atmosphere colour, washed faintly into the page margins.
+    var tint: String? = nil
+    var onEntity: (String) -> Void = { _ in }
     var onSelect: (SelectionAction, String) -> Void = { _, _ in }
     let onLocation: (Int, Double, Int, Int) -> Void
     let onTap: () -> Void
@@ -334,6 +409,8 @@ struct BookWebView: UIViewRepresentable {
         } else if c.marks != marks {
             c.marks = marks
             c.applyMarks()
+        } else if c.namesApplied != names.map(\.0) {
+            c.applyNames()
         }
     }
 
@@ -347,6 +424,8 @@ struct BookWebView: UIViewRepresentable {
         var loadedToken = -1
         var style: BookStyle?
         var marks: [String] = []
+        var namesApplied: [String] = []
+        private var lastEntityTap = Date.distantPast
         private var spine = 0
         private var pending: BookTarget?
         private var ready = false
@@ -378,6 +457,7 @@ struct BookWebView: UIViewRepresentable {
             let accentDeep = t.isDark ? style.accent : (parent?.book.manifest.theme?.accentDeep ?? style.accent)
             let settings: [String: Any] = [
                 "bg": t.background.hex, "ink": t.ink.hex, "ink2": t.ink2.hex, "accent": style.accent, "accentDeep": accentDeep, "finish": style.finish,
+                "tint": parent?.tint ?? "", "tintAlpha": t.isDark ? 0.22 : 0.14,
                 "font": style.font.css ?? "", "size": style.size, "lh": style.spacing, "margin": margins,
                 "top": insets.top + 40, "bottom": insets.bottom + 34, "justify": style.justify, "paged": style.paged,
                 "fonts": Bookshelf.fontsURL.absoluteString, "lang": parent?.book.package.metadata.language ?? "en",
@@ -390,6 +470,15 @@ struct BookWebView: UIViewRepresentable {
             guard let style = parent?.style else { return }
             marks = parent?.marks ?? []
             apply(style, to: webView)
+        }
+
+        /// Wraps names the reader has met in tappable spans (dotted underline).
+        func applyNames() {
+            guard ready, let web, let parent else { return }
+            let pairs = parent.names.map { [$0.0, $0.1] }
+            guard let data = try? JSONSerialization.data(withJSONObject: pairs), let json = String(data: data, encoding: .utf8) else { return }
+            web.evaluateJavaScript("window.qbd && qbd.names(\(json))")
+            namesApplied = parent.names.map(\.0)
         }
 
         /// Re-finds each highlighted passage in the page and wraps it in a pastel mark.
@@ -424,6 +513,11 @@ struct BookWebView: UIViewRepresentable {
 
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+            if type == "entity", let id = body["id"] as? String {
+                lastEntityTap = Date()
+                parent?.onEntity(id)
+                return
+            }
             if type == "layout" {
                 pages = max(1, body["pages"] as? Int ?? 1)
                 ready = true
@@ -443,6 +537,7 @@ struct BookWebView: UIViewRepresentable {
             case .text(let t): js = "qbd.goText(\(Self.quoted(t)))"
             }
             applyMarks()
+            applyNames()
             web.evaluateJavaScript(js) { [weak self] _, _ in
                 DispatchQueue.main.async {
                     UIView.animate(withDuration: 0.18) { web.alpha = 1 }
@@ -504,8 +599,17 @@ struct BookWebView: UIViewRepresentable {
         }
 
         @objc func tapped(_ g: UITapGestureRecognizer) {
-            guard let web, let parent, ready else { return }
+            guard let web, ready else { return }
             let x = g.location(in: web).x / max(1, web.bounds.width)
+            // A tap on a name opens its card instead; the page script reports it first.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                guard let self, Date().timeIntervalSince(self.lastEntityTap) > 0.4 else { return }
+                self.handleTap(x: x)
+            }
+        }
+
+        private func handleTap(x: CGFloat) {
+            guard let parent else { return }
             guard style?.paged ?? true else { return parent.onTap() }
             if x < 0.28 { turn(-1) } else if x > 0.72 { turn(1) } else { parent.onTap() }
         }
@@ -626,6 +730,8 @@ enum BookScript {
             float: left; font-size: 3.1em; line-height: 0.82; padding: 0.06em 0.08em 0 0; color: ${s.accentDeep} !important; font-weight: normal; }
           html.qbd-finish h1 + p::first-line, html.qbd-finish h2 + p::first-line, html.qbd-finish h3 + p::first-line, html.qbd-finish h4 + p::first-line, html.qbd-finish .qbd-first::first-line { font-variant-caps: small-caps; letter-spacing: 0.02em; }
           ::selection { background: ${s.accent}66; }
+          span.qbd-x { text-decoration: underline dotted ${s.accent} !important; text-underline-offset: 0.18em; text-decoration-thickness: 1.5px; }
+          html { background: ${s.tint ? `radial-gradient(ellipse 120% 85% at 50% 45%, ${s.bg} 62%, ${s.tint}${Math.round(s.tintAlpha * 255).toString(16).padStart(2, '0')} 100%)` : s.bg} !important; background-attachment: fixed !important; }
           mark.qbd-hl { background: ${s.accent}80 !important; color: inherit !important; border-radius: 2px; padding: 0.05em 0; }
           html.qbd-paged { height: 100vh !important; overflow-y: hidden !important; }
           html.qbd-paged body { box-sizing: content-box !important; height: calc(100vh - ${s.top + s.bottom}px) !important;
@@ -711,6 +817,28 @@ enum BookScript {
             }
           }
         },
+        // Names the reader has met: wrap each occurrence in a tappable span. Longest names first.
+        names(pairs) {
+          document.querySelectorAll('span.qbd-x').forEach(m => { const p = m.parentNode; while (m.firstChild) p.insertBefore(m.firstChild, m); p.removeChild(m); p.normalize(); });
+          if (!pairs.length) return;
+          const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp('\\b(' + pairs.map(p => esc(p[0])).join('|') + ')\\b', 'g');
+          const ids = Object.fromEntries(pairs.map(p => [p[0], p[1]]));
+          const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n =>
+            (n.parentElement && n.parentElement.closest('span.qbd-x, h1, h2, h3, h4, script, style')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+          const nodes = []; let n; while ((n = w.nextNode())) nodes.push(n);
+          for (const node of nodes) {
+            const t = node.nodeValue; re.lastIndex = 0; if (!re.test(t)) continue; re.lastIndex = 0;
+            const frag = document.createDocumentFragment(); let last = 0, m;
+            while ((m = re.exec(t))) {
+              frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+              const sp = document.createElement('span'); sp.className = 'qbd-x'; sp.dataset.id = ids[m[1]]; sp.textContent = m[1];
+              frag.appendChild(sp); last = m.index + m[1].length;
+            }
+            frag.appendChild(document.createTextNode(t.slice(last)));
+            node.parentNode.replaceChild(frag, node);
+          }
+        },
         goText(t) {
           const needle = t.replace(/\s+/g, ' ').trim().slice(0, 60);
           const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -737,6 +865,10 @@ enum BookScript {
         }
       };
       window.addEventListener('resize', () => { if (s) layout(); });
+      document.addEventListener('click', e => {
+        const x = e.target.closest && e.target.closest('span.qbd-x');
+        if (x && !window.getSelection().toString()) { post({ type: 'entity', id: x.dataset.id }); }
+      }, true);
     })();
     """#
 }

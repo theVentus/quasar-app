@@ -1,0 +1,146 @@
+{
+ "schema": "qbd.companion/1",
+ "storylines": {
+  "sky": "The sky",
+  "ground": "The ground"
+ },
+ "chapters": [
+  {
+   "href": "index_split_001.html",
+   "title": "The Patient Messenger",
+   "storyline": "sky",
+   "setting": "space",
+   "era": "",
+   "mood": "wonder",
+   "palette": [
+    "#08101F",
+    "#3E6E9E",
+    "#F2CDA7"
+   ],
+   "imagery": [
+    "starlight",
+    "signal",
+    "horizon"
+   ],
+   "teaser": "A clear night, and a sky that is not one picture but many departures.",
+   "recap": "Light is introduced as a messenger whose delay turns time into distance. The guide sets out why small timing errors matter.",
+   "people": [
+    "light",
+    "sailors"
+   ]
+  },
+  {
+   "href": "index_split_002.html",
+   "title": "Clocks That Disagree",
+   "storyline": "ground",
+   "setting": "lab",
+   "era": "",
+   "mood": "curious",
+   "palette": [
+    "#0E1418",
+    "#4F7C7A",
+    "#E8C170"
+   ],
+   "imagery": [
+    "pendulum",
+    "quartz",
+    "caesium"
+   ],
+   "teaser": "A workbench of clocks, each counting something that repeats.",
+   "recap": "Every clock drifts, and orbiting clocks drift in a particular way. A single tuned number corrects them before launch.",
+   "people": [
+    "caesium-clock"
+   ]
+  },
+  {
+   "href": "index_split_003.html",
+   "title": "Listening to the Edge of the Sky",
+   "storyline": "sky",
+   "setting": "orbit",
+   "era": "",
+   "mood": "wonder",
+   "palette": [
+    "#060A14",
+    "#2F5A8A",
+    "#BFE3FF"
+   ],
+   "imagery": [
+    "radio dishes",
+    "quasar",
+    "wavefront"
+   ],
+   "teaser": "Two dishes on two continents turn toward the same faint point.",
+   "recap": "Radio dishes time a quasar's noise to measure the Earth itself, closing the loop back to the phone.",
+   "people": [
+    "quasar",
+    "light"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "light",
+   "name": "Light",
+   "kind": "term",
+   "aliases": [],
+   "states": [
+    {
+     "href": "index_split_001.html",
+     "at": "intro",
+     "text": "The guide's patient messenger, whose travel time becomes distance."
+    }
+   ]
+  },
+  {
+   "id": "sailors",
+   "name": "Sailors",
+   "kind": "group",
+   "aliases": [],
+   "states": [
+    {
+     "href": "index_split_001.html",
+     "at": "intro",
+     "text": "Who once judged distance by the gap between a flash and its boom."
+    }
+   ]
+  },
+  {
+   "id": "caesium-clock",
+   "name": "Caesium clock",
+   "kind": "technology",
+   "aliases": [
+    "caesium"
+   ],
+   "states": [
+    {
+     "href": "index_split_002.html",
+     "at": "intro",
+     "text": "The steadiest clock in the guide, counting an atom's flips."
+    }
+   ]
+  },
+  {
+   "id": "quasar",
+   "name": "Quasar",
+   "kind": "place",
+   "aliases": [
+    "Quasars"
+   ],
+   "states": [
+    {
+     "href": "index_split_003.html",
+     "at": "intro",
+     "text": "A blazing distant galaxy core, fixed enough to measure against."
+    }
+   ]
+  }
+ ],
+ "annotations": [
+  {
+   "href": "index_split_002.html",
+   "anchor": "a few tens of microseconds a day",
+   "kind": "science",
+   "note": "Speed slows an orbiting clock and weaker gravity speeds it up; for navigation satellites the second effect wins."
+  }
+ ]
+}

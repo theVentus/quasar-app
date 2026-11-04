@@ -72,6 +72,7 @@ struct TextSizeControl: View {
 struct AppSettingsView: View {
     @AppStorage("theme") private var themeRaw = ReadingTheme.sepia.rawValue
     @AppStorage("textSize") private var textSize = 18.0
+    @AppStorage("chapterOpeners") private var chapterOpeners = true
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -80,6 +81,7 @@ struct AppSettingsView: View {
                 Section("Reading") {
                     ThemeSwatches(themeRaw: $themeRaw).padding(.vertical, 4)
                     TextSizeControl(textSize: $textSize)
+                    Toggle("Chapter openers", isOn: $chapterOpeners)
                 }
                 ClaudeKeySection()
                 Section {

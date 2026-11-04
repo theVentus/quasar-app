@@ -54,6 +54,7 @@ enum LaunchState {
             FileManager.default.createFile(atPath: docs.appendingPathComponent("qbd-ready").path, contents: Data())
         }
     }
+    static var showOpener: Bool { defaults.bool(forKey: "showOpener") }
     static var hideChrome: Bool { defaults.bool(forKey: "hideChrome") }
     static var landingOverride: String? { defaults.string(forKey: "landing") }
     static var lastItem: String? { defaults.string(forKey: "last") }

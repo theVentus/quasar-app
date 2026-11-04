@@ -64,3 +64,8 @@ shot book-toc "${B[@]}" -openBook field-guide -theme dusk -showContents YES
 shot book-highlight-page "${B[@]}" -openBook field-guide -theme sepia -toc 0 -seedHighlights YES
 shot book-whoswho "${B[@]}" -openBook field-guide -theme sepia -toc 2 -showPeople YES
 shot settings "${B[@]}" -tab library -appSettings YES
+# Companion: X-Ray, living names, chapter opener, previously
+shot book-xray "${B[@]}" -openBook field-guide -theme sepia -toc 2 -showPeople YES
+shot book-opener "${B[@]}" -openBook field-guide -theme sepia -toc 1 -showOpener YES
+shot book-opener-orbit "${B[@]}" -openBook field-guide -theme night -toc 2 -showOpener YES
+shot book-previously "${B[@]}" -openBook field-guide -theme paper -toc 2 -reentry YES

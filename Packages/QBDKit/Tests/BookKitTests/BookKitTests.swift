@@ -174,3 +174,42 @@ final class NameIndexTests: XCTestCase {
         XCTAssertEqual(NameIndex.strip("<p>Hi <b>there</b>.</p><p>Two</p>").trimmingCharacters(in: .whitespacesAndNewlines), "Hi there.\nTwo")
     }
 }
+
+final class CompanionTests: XCTestCase {
+    func testSpoilerSafeVisibility() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("comp-\(UUID().uuidString)")
+        let p = try BookPackage.unpack(epub: BookKitTests.fixtures.appendingPathComponent("field-guide-epub2.epub"), to: dir)
+        let json = """
+        {"schema":"qbd.companion/1","storylines":{"a":"Thread A"},
+         "chapters":[
+          {"href":"index_split_001.html","title":"One","storyline":"a","setting":"space","mood":"calm","palette":["#000000","#111111","#222222"],"imagery":["stars"],"teaser":"t1","recap":"r1","people":["mira"]},
+          {"href":"index_split_002.html","title":"Two","storyline":"a","setting":"lab","mood":"tense","palette":["#000000","#111111","#222222"],"imagery":["clocks"],"teaser":"t2","recap":"r2","people":["mira","ada"]},
+          {"href":"index_split_003.html","title":"Three","storyline":"a","setting":"orbit","mood":"wonder","palette":["#000000","#111111","#222222"],"imagery":["dishes"],"teaser":"t3","recap":"r3","people":["ada"]}],
+         "entities":[
+          {"id":"mira","name":"Mira Vale","kind":"character","aliases":["Vale","Doctor Vale"],"states":[
+            {"href":"index_split_001.html","at":"intro","text":"An astronomer."},
+            {"href":"index_split_001.html","at":"end","text":"An astronomer who has found the signal."}]},
+          {"id":"ada","name":"Ada","kind":"character","states":[{"href":"index_split_002.html","at":"intro","text":"A clockmaker."},
+            {"href":"index_split_002.html","at":"end","text":"SPOILER"}]}],
+         "annotations":[{"href":"index_split_002.html","anchor":"two clocks","kind":"science","note":"n"}]}
+        """
+        let c = try JSONDecoder().decode(Companion.self, from: Data(json.utf8))
+        let idx = CompanionIndex(c, package: p)
+        let s1 = try XCTUnwrap(idx.spine(of: "index_split_001.html"))
+        let s2 = s1 + 1, s3 = s1 + 2
+        let mira = c.entities[0], ada = c.entities[1]
+        // In chapter one: only the intro line.
+        XCTAssertEqual(idx.description(of: mira, at: s1), "An astronomer.")
+        XCTAssertNil(idx.description(of: ada, at: s1))
+        // In chapter two: chapter one's end state; Ada's intro but not her end state.
+        XCTAssertEqual(idx.description(of: mira, at: s2), "An astronomer who has found the signal.")
+        XCTAssertEqual(idx.description(of: ada, at: s2), "A clockmaker.")
+        // In chapter three: Ada's chapter-two end state is now known.
+        XCTAssertEqual(idx.description(of: ada, at: s3), "SPOILER")
+        XCTAssertEqual(idx.present(at: s2).sorted(), ["ada", "mira"])
+        XCTAssertEqual(idx.nameMap(at: s2).first?.0, "Doctor Vale")      // longest alias first
+        XCTAssertEqual(idx.previousRecap(before: s3)?.recap, "r2")
+        XCTAssertEqual(idx.chaptersRead(through: s2).map(\.title), ["One", "Two"])
+        XCTAssertEqual(idx.annotations(atSpine: s2).count, 1)
+    }
+}

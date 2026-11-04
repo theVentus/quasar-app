@@ -34,6 +34,12 @@ for dir in try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: ni
     try fm.createDirectory(at: stage, withIntermediateDirectories: true)
     try fm.copyItem(at: json, to: stage.appendingPathComponent("book.json"))
     try fm.copyItem(at: epub, to: stage.appendingPathComponent("book.epub"))
+    // The reading companion travels sealed with the book when it exists.
+    let companion = dir.appendingPathComponent("companion.json")
+    if fm.fileExists(atPath: companion.path) {
+        _ = try JSONDecoder().decode(Companion.self, from: Data(contentsOf: companion))   // must decode
+        try fm.copyItem(at: companion, to: stage.appendingPathComponent("companion.json"))
+    }
     let zip = fm.temporaryDirectory.appendingPathComponent("seal-\(UUID().uuidString).zip")
     try fm.zipItem(at: stage, to: zip, shouldKeepParent: false)
     let blob = try Vault.seal(Data(contentsOf: zip), passphrase: passphrase)
