@@ -128,6 +128,23 @@ struct BookReaderView: View {
         .onAppear { lastItem = "book:" + bookID }
     }
 
+    /// The chapter's engraving for the top of its first page, as data for the page script.
+    private func chapterHeader(_ book: Book, spine: Int, companion: CompanionIndex?) -> [String: String]? {
+        guard let c = companion, let ch = c.chapter(atSpine: spine), c.spine(of: ch.href) == spine,
+              let f = shelf.engraving(for: book, href: ch.href, band: true) else { return nil }
+        return ["ink": f.ink.absoluteString, "wash": f.wash?.absoluteString ?? "", "caption": ch.scene?.caption ?? ""]
+    }
+
+    /// At the end of a chapter's last page: where the next one opens, spoiler-free, over its engraving.
+    private func nextChapterCard(_ book: Book, spine: Int, companion: CompanionIndex?) -> [String: String]? {
+        guard let c = companion, let next = c.nextChapter(after: spine), next.spine == spine + 1 else { return nil }
+        let entry = book.package.tocEntry(spine: next.spine)
+        let num = entry.flatMap { book.outline.chapter(forTOC: $0.id) }?.number
+        let f = shelf.engraving(for: book, href: next.chapter.href, band: true)
+        return ["ink": f?.ink.absoluteString ?? "", "wash": f?.wash?.absoluteString ?? "",
+                "label": num.map { "Next · Chapter \($0)" } ?? "Next", "title": next.chapter.title, "teaser": next.chapter.teaser]
+    }
+
     @ViewBuilder
     private func reader(_ book: Book) -> some View {
         let style = BookStyle(theme: theme, size: textSize, font: BookFont(rawValue: fontRaw) ?? .cmu, spacing: spacing,
@@ -145,6 +162,8 @@ struct BookReaderView: View {
                         marks: highlights.highlights(for: book.id, spine: spine).map(\.text),
                         names: companion?.nameMap(at: spine) ?? [],
                         tint: scene?.palette.dropFirst().first,
+                        header: chapterHeader(book, spine: spine, companion: companion),
+                        footer: nextChapterCard(book, spine: spine, companion: companion),
                         onEntity: { id in entityCard = companion?.companion.entities.first { $0.id == id } },
                         onSelect: { action, text in
                             let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -169,7 +188,7 @@ struct BookReaderView: View {
             if let card = titleCard {
                 let ch = book.package.tocEntry(spine: spine).flatMap { book.outline.chapter(forTOC: $0.id) }
                 ChapterTitleCard(chapter: card, number: ch?.number, storyline: companion?.companion.storylines[card.storyline],
-                                 seed: spine) { withAnimation(.smooth(duration: 0.5)) { titleCard = nil } }
+                                 seed: spine, engraving: shelf.engraving(for: book, href: card.href, band: false), theme: theme) { withAnimation(.smooth(duration: 0.5)) { titleCard = nil } }
                     .transition(.opacity)
                     .zIndex(2)
             }
@@ -346,6 +365,9 @@ struct BookWebView: UIViewRepresentable {
     var names: [(String, String)] = []
     /// The chapter's atmosphere colour, washed faintly into the page margins.
     var tint: String? = nil
+    /// Engraved chapter header and next-chapter card (file URLs and text), when the book has scenes.
+    var header: [String: String]? = nil
+    var footer: [String: String]? = nil
     var onEntity: (String) -> Void = { _ in }
     var onSelect: (SelectionAction, String) -> Void = { _, _ in }
     let onLocation: (Int, Double, Int, Int) -> Void
@@ -461,6 +483,8 @@ struct BookWebView: UIViewRepresentable {
                 "font": style.font.css ?? "", "size": style.size, "lh": style.spacing, "margin": margins,
                 "top": insets.top + 40, "bottom": insets.bottom + 34, "justify": style.justify, "paged": style.paged,
                 "fonts": Bookshelf.fontsURL.absoluteString, "lang": parent?.book.package.metadata.language ?? "en",
+                "scene": parent?.header ?? [:], "next": parent?.footer ?? [:],
+                "sceneInk": EngravingInk.reading(t).ink.hex, "sceneWash": EngravingInk.reading(t).wash,
             ]
             guard let data = try? JSONSerialization.data(withJSONObject: settings), let json = String(data: data, encoding: .utf8) else { return }
             web.evaluateJavaScript("window.qbd && qbd.apply(\(json))")
@@ -738,7 +762,53 @@ enum BookScript {
                  padding: ${s.top}px ${s.margin}px ${s.bottom}px ${s.margin}px !important;
                  column-width: calc(100vw - ${2 * s.margin}px) !important; column-gap: ${2 * s.margin}px !important; column-fill: auto !important; }
           html.qbd-paged img, html.qbd-paged svg { max-height: calc(100vh - ${s.top + s.bottom + 8}px) !important; break-inside: avoid; }
-          html:not(.qbd-paged) body { padding: ${s.top}px ${s.margin}px ${s.bottom + 90}px ${s.margin}px !important; }`;
+          html:not(.qbd-paged) body { padding: ${s.top}px ${s.margin}px ${s.bottom + 90}px ${s.margin}px !important; }
+          .qbd-scene { position: relative; width: 100%; aspect-ratio: 1200 / 520; margin: 0 0 1.4em 0; break-inside: avoid; overflow: hidden;
+                 -webkit-mask-image: linear-gradient(#000 70%, transparent); }
+          html.qbd-paged .qbd-scene { max-height: 34vh; }
+          .qbd-scene > div { position: absolute; inset: 0; background-size: cover !important; background-position: center !important; }
+          .qbd-scene .w { opacity: ${s.sceneWash}; }
+          .qbd-scene .i { background-color: ${s.sceneInk} !important; -webkit-mask-size: cover; -webkit-mask-position: center; }
+          .qbd-scene .sheen { background: linear-gradient(105deg, transparent 35%, ${s.bg}55 50%, transparent 65%) !important;
+                 background-size: 300% 100% !important; animation: qbd-sheen 14s ease-in-out infinite; }
+          @keyframes qbd-sheen { 0% { background-position: 120% 0; } 60%, 100% { background-position: -40% 0; } }
+          @media (prefers-reduced-motion: reduce) { .qbd-scene .sheen { animation: none; display: none; } }
+          .qbd-scene-cap { text-align: center; font-style: italic; font-size: 0.8em; opacity: 0.6; margin: -1.1em 0 1.6em; }
+          .qbd-next { break-before: column; break-inside: avoid; margin-top: 3em; text-align: center; }
+          html:not(.qbd-paged) .qbd-next { margin-top: 4em; border-top: 1px solid ${s.ink}22; padding-top: 2em; }
+          .qbd-next .qbd-scene { -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, #000 40%, transparent 75%); margin-bottom: 0.8em; }
+          .qbd-next small { display: block; font-size: 0.7em; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.55; font-style: normal; }
+          .qbd-next h4 { margin: 0.35em 0 0.4em; font-weight: normal; font-size: 1.35em; color: ${s.accentDeep} !important; }
+          .qbd-next p { font-style: italic; opacity: 0.8; margin: 0 auto; max-width: 26em; text-indent: 0 !important; }
+          hr, p.qbd-break { border: 0 !important; height: 1.6em !important; margin: 1.2em auto !important; text-align: center; color: transparent !important; overflow: hidden;
+                 background: radial-gradient(circle, ${s.accentDeep} 0 2px, transparent 2.5px) center / 100% 100% no-repeat,
+                             linear-gradient(${s.accentDeep}, ${s.accentDeep}) calc(50% - 22px) 50% / 26px 1px no-repeat,
+                             linear-gradient(${s.accentDeep}, ${s.accentDeep}) calc(50% + 22px) 50% / 26px 1px no-repeat !important; }`;
+      }
+      function scenes() {
+        document.querySelectorAll('.qbd-scene-top, .qbd-scene-cap, .qbd-next').forEach(e => e.remove());
+        document.querySelectorAll('p').forEach(p => { if (/^\s*([*•·#~]\s*){3,}$/.test(p.textContent)) p.classList.add('qbd-break'); });
+        const art = (sc) => {
+          const d = document.createElement('div'); d.className = 'qbd-scene';
+          if (sc.wash) { const w = document.createElement('div'); w.className = 'w'; w.style.backgroundImage = `url('${sc.wash}')`; d.appendChild(w); }
+          const i = document.createElement('div'); i.className = 'i';
+          i.style.webkitMaskImage = `url('${sc.ink}')`; d.appendChild(i);
+          const sh = document.createElement('div'); sh.className = 'sheen'; d.appendChild(sh);
+          return d;
+        };
+        if (s.scene && s.scene.ink) {
+          const top = art(s.scene); top.classList.add('qbd-scene-top');
+          document.body.insertBefore(top, document.body.firstChild);
+          if (s.scene.caption) { const c = document.createElement('p'); c.className = 'qbd-scene-cap'; c.textContent = s.scene.caption; top.after(c); }
+        }
+        if (s.next && s.next.title) {
+          const n = document.createElement('div'); n.className = 'qbd-next';
+          if (s.next.ink) n.appendChild(art(s.next));
+          const sm = document.createElement('small'); sm.textContent = s.next.label; n.appendChild(sm);
+          const h = document.createElement('h4'); h.textContent = s.next.title; n.appendChild(h);
+          if (s.next.teaser) { const p = document.createElement('p'); p.textContent = s.next.teaser; n.appendChild(p); }
+          document.body.appendChild(n);
+        }
       }
       function ragged(justify) {
         document.querySelectorAll('.qbd-ragged').forEach(e => e.classList.remove('qbd-ragged'));
@@ -782,6 +852,7 @@ enum BookScript {
           const h = document.querySelector('h1, h2, h3, h4');
           if (h) { let e = h.nextElementSibling; while (e && (e.tagName !== 'P' || e.textContent.trim().length < 20)) e = e.nextElementSibling; if (e) e.classList.add('qbd-first'); }
           ragged(s.justify);
+          scenes();
           if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout); else layout();
         },
         goFraction(f) {

@@ -43,11 +43,17 @@ for dir in try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: ni
     // Landing art (stage-N.jpg, objects-N.png) travels sealed too.
     let art = dir.appendingPathComponent("art", isDirectory: true)
     if fm.fileExists(atPath: art.path) {
-        let files = try fm.contentsOfDirectory(at: art, includingPropertiesForKeys: nil)
-            .filter { ["jpg", "png"].contains($0.pathExtension.lowercased()) }
+        // Stage stills at the top level, chapter engravings under scenes/. Images only.
         let dest = stage.appendingPathComponent("art", isDirectory: true)
-        try fm.createDirectory(at: dest, withIntermediateDirectories: true)
-        for f in files { try fm.copyItem(at: f, to: dest.appendingPathComponent(f.lastPathComponent)) }
+        for sub in ["", "scenes"] {
+            let from = sub.isEmpty ? art : art.appendingPathComponent(sub, isDirectory: true)
+            guard let files = try? fm.contentsOfDirectory(at: from, includingPropertiesForKeys: nil) else { continue }
+            let to = sub.isEmpty ? dest : dest.appendingPathComponent(sub, isDirectory: true)
+            try fm.createDirectory(at: to, withIntermediateDirectories: true)
+            for f in files where ["jpg", "png"].contains(f.pathExtension.lowercased()) {
+                try fm.copyItem(at: f, to: to.appendingPathComponent(f.lastPathComponent))
+            }
+        }
     }
     let zip = fm.temporaryDirectory.appendingPathComponent("seal-\(UUID().uuidString).zip")
     try fm.zipItem(at: stage, to: zip, shouldKeepParent: false)

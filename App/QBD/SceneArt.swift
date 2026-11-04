@@ -304,42 +304,64 @@ struct ChapterTitleCard: View {
     let number: String?
     let storyline: String?
     let seed: Int
+    var engraving: EngravingFiles? = nil
+    var theme: ReadingTheme = .night
     let dismiss: () -> Void
     @State private var shown = false
+    @State private var start = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let onPaper = engraving != nil
+        let colours = EngravingInk.reading(theme)
+        let fg: Color = onPaper ? theme.ink : .white
         ZStack(alignment: .bottomLeading) {
-            SceneArt(setting: chapter.setting, palette: chapter.palette.map { Color(css: $0) }, seed: seed)
+            if let engraving {
+                // The chapter's scene sketches itself in, then the wash bleeds through.
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { tl in
+                    let r = reduceMotion || LaunchState.isScreenshotting ? 1 : min(1, tl.date.timeIntervalSince(start) / 2.4)
+                    EngravingView(files: engraving, colours: colours, reveal: r)
+                }
                 .ignoresSafeArea()
+                LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: colours.paper.opacity(0.85), location: 0.68),
+                                       .init(color: colours.paper, location: 1)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+            } else {
+                SceneArt(setting: chapter.setting, palette: chapter.palette.map { Color(css: $0) }, seed: seed)
+                    .ignoresSafeArea()
+            }
             VStack(alignment: .leading, spacing: 12) {
                 if let storyline {
                     Text(storyline.uppercased())
                         .font(.caption.weight(.semibold)).tracking(2)
-                        .foregroundStyle(Color(css: chapter.palette.last ?? "#E8C170"))
+                        .foregroundStyle(onPaper ? fg.opacity(0.6) : Color(css: chapter.palette.last ?? "#E8C170"))
                 }
-                if let number { Text(number).font(Typeface.serif(22)).foregroundStyle(.white.opacity(0.7)) }
-                Text(chapter.title).font(Typeface.serif(40)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
+                if let number { Text(number).font(Typeface.serif(22)).foregroundStyle(fg.opacity(0.7)) }
+                Text(chapter.title).font(Typeface.serif(40)).foregroundStyle(fg).fixedSize(horizontal: false, vertical: true)
                 if let era = chapter.era, !era.isEmpty {
-                    Text(era).font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.7))
+                    Text(era).font(.subheadline.weight(.medium)).foregroundStyle(fg.opacity(0.7))
                 }
-                Text(chapter.teaser).font(Typeface.serif(18, italic: true)).foregroundStyle(.white.opacity(0.85))
+                Text(chapter.teaser).font(Typeface.serif(18, italic: true)).foregroundStyle(fg.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     Image(systemName: "hand.tap")
                     Text("Tap to begin")
                 }
-                .font(.footnote).foregroundStyle(.white.opacity(0.5)).padding(.top, 10)
+                .font(.footnote).foregroundStyle(fg.opacity(0.5)).padding(.top, 10)
             }
             .padding(28)
             .padding(.bottom, 30)
             .opacity(shown ? 1 : 0)
             .offset(y: shown ? 0 : 16)
         }
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, onPaper ? theme.scheme : .dark)
         .contentShape(.rect)
         .onTapGesture(perform: dismiss)
         .gesture(DragGesture(minimumDistance: 20).onEnded { _ in dismiss() })
-        .onAppear { withAnimation(.smooth(duration: 0.9).delay(0.25)) { shown = true } }
+        .onAppear {
+            start = Date()
+            withAnimation(.smooth(duration: 0.9).delay(onPaper ? 1.4 : 0.25)) { shown = true }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Begins the chapter")

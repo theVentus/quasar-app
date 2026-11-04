@@ -15,6 +15,17 @@ public struct Companion: Codable, Sendable, Hashable {
         public var teaser: String
         public var recap: String
         public var people: [String]
+        /// The chapter's key image, drawn by the engraving engine (tools/engrave).
+        public var scene: Scene?
+    }
+
+    public struct Scene: Codable, Sendable, Hashable {
+        public var backdrop: String
+        public var subjects: [String]
+        public var light: String
+        public var camera: String?
+        public var wash: [String]
+        public var caption: String
     }
 
     public struct State: Codable, Sendable, Hashable {
@@ -71,6 +82,13 @@ public struct CompanionIndex: Sendable {
     }
 
     public func spine(of href: String) -> Int? { spineOf[href] }
+
+    /// The chapter that follows the one containing spine `i`, with its first spine index.
+    public func nextChapter(after i: Int) -> (chapter: Companion.Chapter, spine: Int)? {
+        let start = chapterBySpine.filter { $0.key <= i }.map(\.key).max() ?? -1
+        guard let k = chapterBySpine.keys.filter({ $0 > start }).min(), let c = chapterBySpine[k] else { return nil }
+        return (c, k)
+    }
 
     /// The companion chapter for a spine document, or the nearest earlier one (split files share a chapter).
     public func chapter(atSpine i: Int) -> Companion.Chapter? {

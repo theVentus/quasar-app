@@ -76,11 +76,11 @@ struct HighlightsSection: View {
                     Text("YOUR HIGHLIGHTS")
                         .font(.caption.weight(.semibold))
                         .tracking(1.6)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(.primary.opacity(0.6))
                     Spacer()
                     Button("All \(hs.count)") { showAll = true }
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(.primary.opacity(0.8))
                         .buttonStyle(.plain)
                 }
                 ForEach(hs.prefix(3)) { h in
@@ -103,21 +103,21 @@ struct HighlightCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(highlight.text)
                 .font(Typeface.serif(16))
-                .foregroundStyle(.white.opacity(0.92))
+                .foregroundStyle(.primary.opacity(0.92))
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
             if let n = highlight.note {
-                Text(n).font(.subheadline).foregroundStyle(.white.opacity(0.7)).lineLimit(2)
+                Text(n).font(.subheadline).foregroundStyle(.primary.opacity(0.7)).lineLimit(2)
             }
             Text(highlight.chapter.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1.2)
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(.primary.opacity(0.5))
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(alignment: .leading) { Rectangle().fill(accent.pastel).frame(width: 3) }
-        .background(.white.opacity(0.07), in: .rect(cornerRadius: 14))
+        .background(.primary.opacity(0.06), in: .rect(cornerRadius: 14))
         .clipShape(.rect(cornerRadius: 14))
         .accessibilityElement(children: .combine)
     }

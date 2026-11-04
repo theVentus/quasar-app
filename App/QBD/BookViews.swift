@@ -9,12 +9,15 @@ struct BookBackdrop: View {
     @Environment(Bookshelf.self) private var shelf
     let book: Book
     var style: String? = nil
+    /// Engravings print on paper on the landing; elsewhere (Library posters) on night paper.
+    var onPaper = false
 
     var body: some View {
         let location = LaunchState.sceneOverride ?? shelf.location(book.id)
         let scene = SceneState.current(for: book, location: location)
         let landing = style ?? LaunchState.landingOverride ?? book.manifest.theme?.landing ?? "cover"
         switch landing {
+        case "engraving": EngravingBackdrop(book: book, colours: onPaper ? .paper : .night)
         case "stages" where shelf.stages(for: book) != nil:
             let set = shelf.stages(for: book)!
             LandingStages(set: set, position: StagePosition.current(for: book, location: location, count: set.count))
@@ -298,7 +301,13 @@ struct BookLanding: View {
     @State private var dim = 0.0
 
     private var praise: [BookManifest.Praise] { book.manifest.praise ?? [] }
-    private var isCoverStyle: Bool { (book.manifest.theme?.landing ?? "cover") == "cover" }
+    private var landingStyle: String { LaunchState.landingOverride ?? book.manifest.theme?.landing ?? "cover" }
+    private var isCoverStyle: Bool { landingStyle == "cover" }
+    /// Engraved landings are printed on paper: ink-coloured type, a paper scrim, light chrome.
+    private var onPaper: Bool {
+        guard landingStyle == "engraving", let first = shelf.companion(for: book)?.companion.chapters.first else { return false }
+        return shelf.engraving(for: book, href: first.href, band: false) != nil
+    }
 
     /// "PART 4 · ENLIGHTENMENT" while reading a book with parts; otherwise "UP NEXT" / "NOW READING".
     private var eyebrow: String {
@@ -332,18 +341,18 @@ struct BookLanding: View {
                     Text(eyebrow)
                         .font(.caption.weight(.semibold))
                         .tracking(2)
-                        .foregroundStyle(.white.opacity(0.62))
+                        .foregroundStyle(.primary.opacity(0.62))
                         .reveal(stage >= 1)
                     Text(book.title)
                         .font(Typeface.serif(42))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .lineLimit(3)
                         .minimumScaleFactor(0.55)
                         .padding(.top, 8)
                         .reveal(stage >= 1)
                     Text(book.authors.joined(separator: ", "))
                         .font(Typeface.serif(19, italic: true))
-                        .foregroundStyle(.white.opacity(0.75))
+                        .foregroundStyle(.primary.opacity(0.75))
                         .padding(.top, 4)
                         .reveal(stage >= 1)
                     if !praise.isEmpty {
@@ -358,7 +367,7 @@ struct BookLanding: View {
                         .font(.caption2.weight(.semibold))
                         .tracking(1.4)
                         .textCase(.uppercase)
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(.primary.opacity(0.4))
                         .frame(maxWidth: .infinity)
                         .padding(.top, 18)
                         .reveal(stage >= 4)
@@ -367,7 +376,7 @@ struct BookLanding: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 14)
-                .containerRelativeFrame(.vertical) { h, _ in max(h * 0.93, 560) }
+                .containerRelativeFrame(.vertical) { h, _ in max(h, 560) }
 
                 AboutSection(book: book, expanded: $expanded)
                     .padding(.horizontal, 24)
@@ -384,16 +393,17 @@ struct BookLanding: View {
             dim = min(1, max(0, y / 360))
         }
         .background {
-            BookBackdrop(book: book)
+            let veil: Color = onPaper ? EngravingInk.paper.paper : .black
+            BookBackdrop(book: book, onPaper: true)
                 .overlay {
-                    // Legibility at the foot of the art, and a deeper dim once you scroll into the details.
-                    LinearGradient(stops: [.init(color: .clear, location: 0.48), .init(color: .black.opacity(0.55), location: 0.7),
-                                           .init(color: .black.opacity(0.88), location: 1)], startPoint: .top, endPoint: .bottom)
+                    // Legibility at the foot of the art, and a deeper veil once you scroll into the details.
+                    LinearGradient(stops: [.init(color: .clear, location: onPaper ? 0.52 : 0.48), .init(color: veil.opacity(onPaper ? 0.75 : 0.55), location: 0.7),
+                                           .init(color: veil.opacity(onPaper ? 0.97 : 0.88), location: 1)], startPoint: .top, endPoint: .bottom)
                 }
-                .overlay(Color.black.opacity(dim * 0.6))
+                .overlay(veil.opacity(dim * (onPaper ? 0.75 : 0.6)))
                 .ignoresSafeArea()
         }
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, onPaper ? .light : .dark)
         .task {
             if reduceMotion || LaunchState.isScreenshotting { stage = 4; return }
             for i in 1...4 {
@@ -428,7 +438,7 @@ struct ProgressHairline: View {
         HStack(spacing: 12) {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.16))
+                    Capsule().fill(.primary.opacity(0.16))
                     Capsule().fill(accent.pastel).frame(width: max(2, g.size.width * CGFloat(p)))
                 }
             }
@@ -436,7 +446,7 @@ struct ProgressHairline: View {
             Text(p > 0 ? "\(Int((p * 100).rounded()))%" : "≈ \(max(1, Int(book.readingHours.rounded()))) h")
                 .font(.footnote.weight(.medium))
                 .monospacedDigit()
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(.primary.opacity(0.72))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(p > 0 ? "\(Int((p * 100).rounded())) percent read" : "About \(max(1, Int(book.readingHours.rounded()))) hours")
@@ -455,7 +465,7 @@ struct AboutSection: View {
             Text("ABOUT")
                 .font(.caption.weight(.semibold))
                 .tracking(1.6)
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.primary.opacity(0.6))
             if let awards = book.manifest.awards {
                 Text(awards.uppercased())
                     .font(.caption2.weight(.semibold))
@@ -470,7 +480,7 @@ struct AboutSection: View {
             Text(bits.compactMap { $0 }.joined(separator: "  ·  "))
                 .font(.footnote.weight(.medium))
                 .monospacedDigit()
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(.primary.opacity(0.55))
         }
     }
 }
@@ -485,12 +495,12 @@ struct PressLine: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("‘\(p.quote)’")
                 .font(Typeface.serif(17, italic: true))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(.primary.opacity(0.9))
                 .fixedSize(horizontal: false, vertical: true)
             Text(p.source.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1.2)
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(.primary.opacity(0.55))
         }
         .id(index)
         .transition(.opacity)
@@ -507,7 +517,7 @@ struct Blurb: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.78))
+                .foregroundStyle(.primary.opacity(0.78))
                 .lineLimit(expanded ? nil : 4)
                 .fixedSize(horizontal: false, vertical: true)
                 .mask {
@@ -517,7 +527,7 @@ struct Blurb: View {
                 }
             Button(expanded ? "Less" : "More") { withAnimation(.smooth(duration: 0.4)) { expanded.toggle() } }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .buttonStyle(.plain)
         }
         .contentShape(.rect)
