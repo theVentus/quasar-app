@@ -13,7 +13,8 @@ struct BookBackdrop: View {
     var body: some View {
         let scene = SceneState.current(for: book, location: LaunchState.sceneOverride ?? shelf.location(book.id))
         switch style ?? LaunchState.landingOverride ?? book.manifest.theme?.landing ?? "cover" {
-        case "web": WebBackdrop(scene: scene)
+        case "web": LandingArt(scene: scene)
+        case "web-classic": WebBackdrop(scene: scene)
         case "sky": SkyView()
         default: CoverBackdrop(book: book)
         }

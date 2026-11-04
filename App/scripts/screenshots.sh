@@ -69,3 +69,6 @@ shot book-xray "${B[@]}" -openBook field-guide -theme sepia -toc 2 -showPeople Y
 shot book-opener "${B[@]}" -openBook field-guide -theme sepia -toc 1 -showOpener YES
 shot book-opener-orbit "${B[@]}" -openBook field-guide -theme night -toc 2 -showOpener YES
 shot book-previously "${B[@]}" -openBook field-guide -theme paper -toc 2 -reentry YES
+# Landing art through the story (sample book borrows the bespoke style): start, middle, end
+shot landing-early "${B[@]}" -tab home -last book:field-guide -landing web -skipEntrance YES
+shot landing-late "${B[@]}" -tab home -last book:field-guide -landing web -scene 4 -skipEntrance YES
