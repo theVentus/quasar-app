@@ -1,19 +1,14 @@
 import SwiftUI
 import UIKit
-import CourseKit
 import BookKit
 
-/// A course's pastel accent. Pastels fill (prominent buttons, selected chips, progress); the deeper shade carries
+/// A book's pastel accent. Pastels fill (prominent buttons, selected chips, progress); the deeper shade carries
 /// text and icons on light surfaces, where a pastel would be too faint to read.
 struct CourseAccent {
     let pastel: Color
     let onPastel: Color
     /// System tint: the deep shade in light appearance, the pastel in dark.
     let tint: Color
-
-    init(_ theme: CourseManifest.Theme?) {
-        self.init(accent: theme?.accent, deep: theme?.accentDeep, on: theme?.onAccent)
-    }
 
     init(_ theme: BookManifest.Theme?) {
         self.init(accent: theme?.accent, deep: theme?.accentDeep, on: theme?.onAccent)

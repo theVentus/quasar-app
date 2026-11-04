@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The course's signature backdrop: wavefronts leaving a quasar and sweeping past a blue dot, which brightens as each one arrives.
+/// A deep-sky backdrop: wavefronts leaving a quasar and sweeping past a blue dot, which brightens as each one arrives.
 /// Glass placed over it has real structure to refract. Static when Reduce Motion is on.
 struct SkyView: View {
     var animated = true

@@ -5,16 +5,12 @@ let package = Package(
     name: "QBDKit",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "CourseKit", targets: ["CourseKit"]),
         .library(name: "BookKit", targets: ["BookKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.19"),
     ],
     targets: [
-        // Pure Swift, Foundation only: builds and tests on Linux CI as well as Apple platforms.
-        .target(name: "CourseKit"),
-        .testTarget(name: "CourseKitTests", dependencies: ["CourseKit"]),
         // EPUB 2/3 packages: unzip, metadata, reading order, contents, cover.
         .target(name: "BookKit", dependencies: [.product(name: "ZIPFoundation", package: "ZIPFoundation")]),
         .testTarget(name: "BookKitTests", dependencies: ["BookKit"]),

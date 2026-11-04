@@ -276,7 +276,7 @@ struct CoverImage: View {
 
 // MARK: Landing
 
-/// Home for a book: the same shape as a course landing, in the book's own style.
+/// Home for a book, in the book's own style.
 /// Home for a book: the back of a paperback. Title, a press line, the first lines of the description, then the actions.
 /// Everything settles in a beat apart on arrival; the backdrop advances as you read.
 struct BookLanding: View {
@@ -504,7 +504,7 @@ struct BookActions: View {
     }
 }
 
-/// A book in the Library: its backdrop as poster art, its cover, and the same glass chips and actions as a course.
+/// A book in the Library: its backdrop as poster art, its cover, glass chips and actions.
 struct BookPoster: View {
     let book: Book
     let open: (Route) -> Void

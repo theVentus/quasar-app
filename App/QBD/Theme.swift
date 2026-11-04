@@ -1,5 +1,4 @@
 import SwiftUI
-import CourseKit
 
 /// Reading themes shared with the web reader. They colour the reading surface only; system chrome stays native glass.
 enum ReadingTheme: String, CaseIterable, Identifiable {
@@ -47,18 +46,6 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
                                                             .rose: (235, 135, 118, 0.14), .lilac: (172, 150, 232, 0.15), .sand: (210, 180, 130, 0.10)]
         let t = (isDark ? dark : light)[hue]!
         return Color(.sRGB, red: t.0 / 255, green: t.1 / 255, blue: t.2 / 255, opacity: t.3)
-    }
-
-    func tint(for kind: TheoremKind) -> Color? {
-        switch kind {
-        case .definition, .theorem: tint(.blue)
-        case .example: tint(.green)
-        case .keyIdea: tint(.yellow)
-        case .misconception, .warning: tint(.rose)
-        case .remark, .note, .intuition: tint(.lilac)
-        case .check: tint(.sand)
-        case .exercise: nil
-        }
     }
 
     func tint(forKind kind: String) -> Color {

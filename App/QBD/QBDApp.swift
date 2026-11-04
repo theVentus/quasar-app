@@ -3,14 +3,12 @@ import BookKit
 
 @main
 struct QBDApp: App {
-    @State private var library = Library()
     @State private var shelf = Bookshelf()
     @State private var highlights = HighlightStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(library)
                 .environment(shelf)
                 .environment(highlights)
         }
@@ -18,23 +16,22 @@ struct QBDApp: App {
 }
 
 /// Liquid Glass comes from system components: the tab bar (minimises on scroll), toolbars, sheets and the bottom accessory.
-/// Course content is never glass.
+/// Pages are never glass.
 struct RootView: View {
-    @Environment(Library.self) private var library
     @Environment(Bookshelf.self) private var shelf
-    @AppStorage("lastCourse") private var lastCourse = ""
-    @AppStorage("lastItem") private var lastItem = ""
+    @AppStorage("lastItem") private var lastItem = """
     @State private var tab: AppTab = .home
     @State private var homePath: [Route] = []
     @State private var libraryPath: [Route] = []
+    @State private var highlightsPath: [Route] = []
     @State private var searchPath: [Route] = []
 
-    /// The app wears the accent of the course you last opened.
+    /// The app wears the accent of the book you last opened.
     private var accent: CourseAccent {
         if case .book(let id)? = LastItem(LaunchState.lastItem ?? lastItem), let book = shelf.book(id) {
             return CourseAccent(book.manifest.theme)
         }
-        return CourseAccent((library.course(lastCourse) ?? library.courses.first)?.manifest.theme)
+        return CourseAccent(shelf.books.first?.manifest.theme)
     }
 
     var body: some View {
@@ -51,11 +48,11 @@ struct RootView: View {
                         .navigationDestination(for: Route.self) { RouteView(route: $0) }
                 }
             }
-            Tab("Review", systemImage: "rectangle.stack", value: AppTab.review) {
-                NavigationStack { ReviewView() }
-            }
-            Tab("Lab", systemImage: "testtube.2", value: AppTab.lab) {
-                NavigationStack { LabView() }
+            Tab("Highlights", systemImage: "highlighter", value: AppTab.highlights) {
+                NavigationStack(path: $highlightsPath) {
+                    AllHighlightsView(path: $highlightsPath)
+                        .navigationDestination(for: Route.self) { RouteView(route: $0) }
+                }
             }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) {
@@ -81,33 +78,25 @@ struct RootView: View {
         switch tab {
         case .home: return false
         case .library: return libraryPath.isEmpty
+        case .highlights: return highlightsPath.isEmpty
         case .search: return searchPath.isEmpty
-        default: return true
         }
     }
 
     private func applyLaunchState() {
         LaunchState.signalReadyIfAsked()
         if let t = LaunchState.tab { tab = t }
-        guard let c = library.courses.first else { return }
-        if LaunchState.openCourse { tab = .home; homePath = [.course(c.id)] }
-        if let l = LaunchState.openLesson { tab = .home; homePath = [.course(c.id), .lesson(course: c.id, lesson: l)] }
         if let b = LaunchState.openBook { tab = .home; homePath = [.book(id: b, toc: nil)] }
         if let b = LaunchState.openBookContents { tab = .home; homePath = [.bookContents(b)] }
     }
 }
 
 struct RouteView: View {
-    @Environment(Library.self) private var library
     @Environment(Bookshelf.self) private var shelf
     let route: Route
 
     var body: some View {
         switch route {
-        case .course(let id):
-            if let c = library.course(id) { CourseView(course: c) } else { MissingView() }
-        case .lesson(let cid, let lid):
-            if let c = library.course(cid) { ReaderView(course: c, lessonID: lid) } else { MissingView() }
         case .bookContents(let id):
             if let b = shelf.book(id) { BookContentsView(book: b).environment(\.accent, CourseAccent(b.manifest.theme)) } else { MissingView() }
         case .book(let id, let toc, let hl):
@@ -119,13 +108,12 @@ struct RouteView: View {
 
 struct MissingView: View {
     var body: some View {
-        ContentUnavailableView("Not found", systemImage: "questionmark.folder", description: Text("This course or lesson isn’t installed."))
+        ContentUnavailableView("Not found", systemImage: "questionmark.folder", description: Text("This book isn’t installed."))
     }
 }
 
-/// Music-style "Now reading" pill above the tab bar: the last book, or the current lesson.
+/// Music-style "Now reading" pill above the tab bar: the last book opened.
 struct NowReadingAccessory: View {
-    @Environment(Library.self) private var library
     @Environment(Bookshelf.self) private var shelf
     @AppStorage("lastItem") private var lastItem = ""
     let open: ([Route]) -> Void
@@ -135,10 +123,6 @@ struct NowReadingAccessory: View {
             let p = shelf.progress(book)
             row(icon: "book.closed", title: book.title, subtitle: p > 0 ? "\(Int((p * 100).rounded()))% read" : book.authors.joined(separator: ", "),
                 label: "Resume \(book.title)") { open([.book(id: book.id, toc: nil)]) }
-        } else if let now = library.nowReading() {
-            let course = now.0, lesson = now.1
-            row(icon: "book.pages", title: "\(lesson.number)  \(lesson.title)", subtitle: course.manifest.title,
-                label: "Resume Lesson \(lesson.number), \(lesson.title)") { open([.course(course.id), .lesson(course: course.id, lesson: lesson.id)]) }
         }
     }
 

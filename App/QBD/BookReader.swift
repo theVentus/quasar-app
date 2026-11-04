@@ -301,6 +301,13 @@ struct BookWebView: UIViewRepresentable {
         // No fade under the bottom glass bar: the text should pass under it and refract.
         web.scrollView.bottomEdgeEffect.isHidden = true
         web.allowsLinkPreview = false
+        // With Curl or Fade chosen, native paging is off and swipes drive the same animated turn as taps.
+        for dir in [UISwipeGestureRecognizer.Direction.left, .right] {
+            let swipe = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.swiped(_:)))
+            swipe.direction = dir
+            swipe.delegate = context.coordinator
+            web.addGestureRecognizer(swipe)
+        }
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.cancelsTouchesInView = false
         tap.delegate = context.coordinator
@@ -315,6 +322,8 @@ struct BookWebView: UIViewRepresentable {
         web.backgroundColor = UIColor(style.theme.background)
         web.scrollView.backgroundColor = UIColor(style.theme.background)
         web.scrollView.isPagingEnabled = style.paged
+        // Animated turns (Curl, Fade) own the horizontal gesture; Slide uses the scroll view's own paging.
+        web.scrollView.isScrollEnabled = !(style.paged && style.turn != "slide")
         web.scrollView.alwaysBounceHorizontal = style.paged
         web.scrollView.alwaysBounceVertical = !style.paged
         if c.loadedToken != loadToken {
@@ -488,6 +497,11 @@ struct BookWebView: UIViewRepresentable {
         }
 
         // MARK: Taps
+
+        @objc func swiped(_ g: UISwipeGestureRecognizer) {
+            guard ready, style?.paged ?? true, (style?.turn ?? "slide") != "slide" else { return }
+            turn(g.direction == .left ? 1 : -1)
+        }
 
         @objc func tapped(_ g: UITapGestureRecognizer) {
             guard let web, let parent, ready else { return }

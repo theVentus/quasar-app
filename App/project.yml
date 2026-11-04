@@ -6,9 +6,6 @@ options:
 packages:
   QBDKit:
     path: ../Packages/QBDKit
-  SwiftMath:
-    url: https://github.com/mgriebling/SwiftMath
-    from: 1.7.3
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -20,9 +17,6 @@ targets:
     platform: iOS
     sources:
       - path: QBD
-      - path: ../content/courses
-        type: folder
-        buildPhase: resources
       # Plain sample book for CI screenshots (original text, public).
       - path: ../content/fixtures/fixture-books
         type: folder
@@ -33,10 +27,7 @@ targets:
         buildPhase: resources
     dependencies:
       - package: QBDKit
-        product: CourseKit
-      - package: QBDKit
         product: BookKit
-      - package: SwiftMath
     info:
       path: QBD/Info.plist
       properties:
