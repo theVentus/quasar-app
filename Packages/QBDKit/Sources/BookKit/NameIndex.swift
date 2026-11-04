@@ -41,6 +41,9 @@ public struct NameIndex: Codable, Sendable, Hashable {
     public static func build(_ package: BookPackage, minCount: Int = 4) -> NameIndex {
         struct Acc { var count = 0; var starts = 0; var firstSpine = Int.max; var firstSentence = "" }
         var acc: [String: Acc] = [:]
+        // Words of the book's own title appear on every running head and title page; they aren't characters.
+        let titleWords = Set(package.metadata.title.split(whereSeparator: { !$0.isLetter }).map(String.init))
+        let stop = Self.stop.union(titleWords)
         for (si, item) in package.spine.enumerated() {
             guard let data = try? Data(contentsOf: item.url), let html = String(data: data, encoding: .utf8) else { continue }
             let text = strip(html)
@@ -92,8 +95,8 @@ public struct NameIndex: Codable, Sendable, Hashable {
             if ch == ">" {
                 inTag = false
                 let t = tag.lowercased()
-                if t.hasPrefix("style") || t.hasPrefix("script") { inScript = true }
-                if t.hasPrefix("/style") || t.hasPrefix("/script") { inScript = false }
+                if t.hasPrefix("style") || t.hasPrefix("script") || t.hasPrefix("title") { inScript = true }
+                if t.hasPrefix("/style") || t.hasPrefix("/script") || t.hasPrefix("/title") { inScript = false }
                 if t.hasPrefix("/p") || t.hasPrefix("br") || t.hasPrefix("/h") || t.hasPrefix("/div") { out.append("\n") }
                 continue
             }

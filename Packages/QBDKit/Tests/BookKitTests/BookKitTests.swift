@@ -160,7 +160,7 @@ final class NameIndexTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("names-\(UUID().uuidString)")
         let p = try BookPackage.unpack(epub: BookKitTests.fixtures.appendingPathComponent("field-guide-epub2.epub"), to: dir)
         let idx = NameIndex.build(p, minCount: 2)
-        // "Earth" is stopped; sentence-openers like "Light" (chapter 1 opens "Light is…") must not count as names.
+        // "Earth" is stopped; "Light" is a title word (on the title page and in <title>), not a character.
         XCTAssertFalse(idx.entries.contains { $0.name == "Earth" })
         XCTAssertFalse(idx.entries.contains { $0.name == "Light" })
         XCTAssertTrue(idx.known(upTo: 0).allSatisfy { $0.firstSpine <= 0 })
