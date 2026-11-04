@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import BookKit
 
-/// A chapter's engraving: ink line art (an alpha mask, tinted per theme) over a soft pastel wash.
+/// A chapter's engraving: ink line art (white-on-black luminance, tinted per theme) over a soft pastel wash.
 /// Files live beside the book in `art/scenes/<chapter file stem>-{p,b}-{ink,wash}.png`; p = portrait, b = band.
 struct EngravingFiles: Equatable {
     let ink: URL
@@ -58,8 +58,9 @@ struct EngravingView: View {
                         .opacity(colours.wash * max(0, min(1, (reveal - 0.45) / 0.55)))
                 }
                 if let img = StageImages.image(files.ink, maxPixel: maxPixel) {
-                    Image(uiImage: img).renderingMode(.template).resizable().scaledToFill()
-                        .foregroundStyle(colours.ink)
+                    // The ink file is white lines on black: luminance becomes the mask for the ink colour.
+                    colours.ink
+                        .mask { Image(uiImage: img).resizable().scaledToFill().frame(width: geo.size.width, height: geo.size.height).luminanceToAlpha() }
                         .frame(width: geo.size.width, height: geo.size.height)
                         .mask {
                             if reveal >= 1 { Rectangle() } else {

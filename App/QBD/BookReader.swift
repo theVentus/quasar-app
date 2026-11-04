@@ -484,7 +484,7 @@ struct BookWebView: UIViewRepresentable {
                 "top": insets.top + 40, "bottom": insets.bottom + 34, "justify": style.justify, "paged": style.paged,
                 "fonts": Bookshelf.fontsURL.absoluteString, "lang": parent?.book.package.metadata.language ?? "en",
                 "scene": parent?.header ?? [:], "next": parent?.footer ?? [:],
-                "sceneInk": EngravingInk.reading(t).ink.hex, "sceneWash": EngravingInk.reading(t).wash,
+                "sceneDark": t.isDark, "sceneWash": EngravingInk.reading(t).wash,
             ]
             guard let data = try? JSONSerialization.data(withJSONObject: settings), let json = String(data: data, encoding: .utf8) else { return }
             web.evaluateJavaScript("window.qbd && qbd.apply(\(json))")
@@ -763,12 +763,12 @@ enum BookScript {
                  column-width: calc(100vw - ${2 * s.margin}px) !important; column-gap: ${2 * s.margin}px !important; column-fill: auto !important; }
           html.qbd-paged img, html.qbd-paged svg { max-height: calc(100vh - ${s.top + s.bottom + 8}px) !important; break-inside: avoid; }
           html:not(.qbd-paged) body { padding: ${s.top}px ${s.margin}px ${s.bottom + 90}px ${s.margin}px !important; }
-          .qbd-scene { position: relative; width: 100%; aspect-ratio: 1200 / 520; margin: 0 0 1.4em 0; break-inside: avoid; overflow: hidden;
+          .qbd-scene { position: relative; width: 100%; aspect-ratio: 1200 / 520; background-color: ${s.bg} !important; isolation: isolate; margin: 0 0 1.4em 0; break-inside: avoid; overflow: hidden;
                  -webkit-mask-image: linear-gradient(#000 70%, transparent); }
           html.qbd-paged .qbd-scene { max-height: 34vh; }
           .qbd-scene > div { position: absolute; inset: 0; background-size: cover !important; background-position: center !important; }
           .qbd-scene .w { opacity: ${s.sceneWash}; }
-          .qbd-scene .i { background-color: ${s.sceneInk} !important; -webkit-mask-size: cover; -webkit-mask-position: center; }
+          .qbd-scene .i { mix-blend-mode: ${s.sceneDark ? 'screen' : 'multiply'}; filter: ${s.sceneDark ? 'none' : 'invert(1)'}; opacity: ${s.sceneDark ? 0.8 : 0.9}; }
           .qbd-scene .sheen { background: linear-gradient(105deg, transparent 35%, ${s.bg}55 50%, transparent 65%) !important;
                  background-size: 300% 100% !important; animation: qbd-sheen 14s ease-in-out infinite; }
           @keyframes qbd-sheen { 0% { background-position: 120% 0; } 60%, 100% { background-position: -40% 0; } }
@@ -792,7 +792,7 @@ enum BookScript {
           const d = document.createElement('div'); d.className = 'qbd-scene';
           if (sc.wash) { const w = document.createElement('div'); w.className = 'w'; w.style.backgroundImage = `url('${sc.wash}')`; d.appendChild(w); }
           const i = document.createElement('div'); i.className = 'i';
-          i.style.webkitMaskImage = `url('${sc.ink}')`; d.appendChild(i);
+          i.style.backgroundImage = `url('${sc.ink}')`; d.appendChild(i);
           const sh = document.createElement('div'); sh.className = 'sheen'; d.appendChild(sh);
           return d;
         };
